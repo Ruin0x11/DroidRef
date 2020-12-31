@@ -228,7 +228,6 @@ public class StickerView extends FrameLayout {
         cropIcons.add(cropRightBottom);
 
         if (withStyleIcon) {
-            Timber.d("withStyleIcon_!");
 //            BitmapStickerIcon styleIcon = new BitmapStickerIcon(
 //                    getContext(), R.drawable.ic_underline, BitmapStickerIcon.LEFT_BOTTOM);
 //            styleIcon.setIconEvent(new StyleIconEvent());
@@ -488,7 +487,6 @@ public class StickerView extends FrameLayout {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
 //                Timber.d("CANVAS MotionEvent.ACTION_DOWN event__: %s", event.toString());
-                Timber.d("ACTION DOWN %s", event);
 
                 if (pointerId == -1) {
                     if (!onTouchDownCanvas(event)) {
@@ -497,8 +495,6 @@ public class StickerView extends FrameLayout {
                 }
                 break;
             case MotionEvent.ACTION_POINTER_DOWN:
-                Timber.d("POINTER DOWN %s", event);
-
                 oldDistance = calculateDistance(event);
                 oldRotation = calculateRotation(event);
                 midPoint = calculateMidPoint(event);
@@ -511,15 +507,12 @@ public class StickerView extends FrameLayout {
                 if (event.getPointerId(0) != pointerId) {
                     calculateDown(event);
                     pointerId = event.getPointerId(0);
-                    Timber.d("HIT %s", event);
                 }
                 handleMoveActionCanvas(event);
                 invalidate();
                 break;
 
             case MotionEvent.ACTION_UP:
-                Timber.d("ACTION UP %s", event);
-
                 for (int i = 0; i < event.getPointerCount(); i++) {
                     if (event.getPointerId(i) == pointerId) {
                         onTouchUpCanvas(event);
@@ -529,7 +522,6 @@ public class StickerView extends FrameLayout {
                 break;
 
             case MotionEvent.ACTION_POINTER_UP:
-                Timber.d("POINTER UP %s", event);
                 if (currentMode == ActionMode.CANVAS_ZOOM_WITH_TWO_FINGER) {
                     if (!onTouchDownCanvas(event)) {
                         return false;
@@ -538,8 +530,6 @@ public class StickerView extends FrameLayout {
                     currentMode = ActionMode.NONE;
                 }
                 break;
-            default:
-                Timber.d("Unknown %s", event);
         }
 
         return true;
@@ -577,7 +567,6 @@ public class StickerView extends FrameLayout {
         switch (currentMode) {
             case ActionMode.CANVAS_DRAG:
                 moveMatrix.set(stickerWorldMatrix);
-                Timber.d("%f %f %f %f", event.getX(), event.getY(), downX, downY);
                 moveMatrix.postTranslate(event.getX() - downX, event.getY() - downY);
                 canvasMatrix.set(moveMatrix);
                 updateCanvasMatrix();
@@ -816,7 +805,6 @@ public class StickerView extends FrameLayout {
             float oldDistance = calculateDistance(midPoint.x, midPoint.y, downXScaled, downYScaled);
             float newDistance = calculateDistance(midPoint.x, midPoint.y, temp[0], temp[1]);
             float newRotation = calculateRotation(midPoint.x, midPoint.y, temp[0], temp[1]);
-            Timber.d("%f,%f %f,%f  %f,%f  %f,%f  %f %f", midPoint.x, midPoint.y, temp[0], temp[1], event.getX(), event.getY(), downXScaled, downYScaled, oldDistance, newDistance);
 
             moveMatrix.set(stickerWorldMatrix);
             moveMatrix.postScale(newDistance / oldDistance, newDistance / oldDistance, midPoint.x, midPoint.y);
@@ -923,8 +911,6 @@ public class StickerView extends FrameLayout {
         }
 
         sticker.setCroppedBounds(cropped);
-
-        Timber.d("%f %f %s", pointOnSticker.x, pointOnSticker.y, sticker.getRealBounds());
     }
 
     @Nullable
@@ -1246,6 +1232,11 @@ public class StickerView extends FrameLayout {
 //        sticker.getMatrix()
 //                .postScale(scaleFactor / 2, scaleFactor / 2, getWidth() / 2f, getHeight() / 2f);
 
+        addStickerRaw(sticker);
+    }
+
+    @NonNull
+    public void addStickerRaw(@NonNull Sticker sticker) {
         sticker.setCanvasMatrix(canvasMatrix);
         sticker.recalcFinalMatrix();
         handlingSticker = sticker;

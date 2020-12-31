@@ -10,8 +10,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
-import android.text.Layout
-import android.view.View
+import android.util.Log
 import android.widget.ImageButton
 import android.widget.Toast
 import android.widget.ToggleButton
@@ -20,13 +19,14 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.xiaopo.flying.sticker.*
 import com.xiaopo.flying.sticker.StickerView.OnStickerOperationListener
-import com.xiaopo.flying.sticker.extensions.withUnderline
 import timber.log.Timber
+import java.io.File
+import java.io.IOException
 
 
 class MainActivity : AppCompatActivity() {
     private lateinit var stickerView: StickerView
-    private lateinit var sticker: TextSticker
+//    private lateinit var sticker: TextSticker
 
     override fun onCreate(savedInstanceState: Bundle?) {
         Timber.plant(Timber.DebugTree())
@@ -77,34 +77,78 @@ class MainActivity : AppCompatActivity() {
 
         setupButtons()
 
-        sticker = TextSticker(this)
-        sticker.drawable = ContextCompat.getDrawable(
-            applicationContext,
-            R.drawable.sticker_transparent_background
-        )!!
-        sticker.text = "Elad\nאלעד"
-        sticker.setTextColor(Color.BLACK)
-        sticker.setTextAlign(Layout.Alignment.ALIGN_CENTER)
-        sticker.resizeText()
+//        sticker = TextSticker(this)
+//        sticker.drawable = ContextCompat.getDrawable(
+//            applicationContext,
+//            R.drawable.sticker_transparent_background
+//        )!!
+//        sticker.text = "Elad\nאלעד"
+//        sticker.setTextColor(Color.BLACK)
+//        sticker.setTextAlign(Layout.Alignment.ALIGN_CENTER)
+//        sticker.resizeText()
 
+        loadSticker()
+    }
+
+    private fun save() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-            != PackageManager.PERMISSION_GRANTED
-            || ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-            != PackageManager.PERMISSION_GRANTED
+                != PackageManager.PERMISSION_GRANTED
         ) {
             ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                PERM_RQST_CODE
+                    this,
+                    arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                    PERM_RQST_CODE
             )
-        } else {
-            loadSticker()
+        }
+
+        // Create a path where we will place our private file on external
+        // storage.
+        val file = File(getExternalFilesDir(null), "test.zip")
+
+        try {
+            StickerViewSerializer().serialize(stickerView, file)
+            Toast.makeText(stickerView.context, "Saved to $file", Toast.LENGTH_SHORT).show()
+        } catch (e: IOException) {
+            // Unable to create file, likely because external storage is
+            // not currently mounted.
+            Log.w("ExternalStorage", "Error writing $file", e)
+            Toast.makeText(stickerView.context, "Error writing $file", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun load() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                    PERM_RQST_CODE
+            )
+        }
+
+        // Create a path where we will place our private file on external
+        // storage.
+        val file = File(getExternalFilesDir(null), "test.zip")
+
+        try {
+            StickerViewSerializer().deserialize(stickerView, file, resources)
+            Toast.makeText(stickerView.context, "Loaded from $file", Toast.LENGTH_SHORT).show()
+        } catch (e: IOException) {
+            // Unable to create file, likely because external storage is
+            // not currently mounted.
+            Log.w("ExternalStorage", "Error writing $file", e)
+            Toast.makeText(stickerView.context, "Error reading $file", Toast.LENGTH_LONG).show()
         }
     }
 
     private fun setupButtons() {
         val buttonOpen = findViewById<ImageButton>(R.id.buttonOpen)
+        buttonOpen.setOnClickListener { _ -> load() }
+
         val buttonSave = findViewById<ImageButton>(R.id.buttonSave)
+        buttonSave.setOnClickListener { _ -> save() }
+
         val buttonNew = findViewById<ImageButton>(R.id.buttonNew)
         buttonNew.setOnClickListener { _ ->
             val dialogClickListener =
@@ -192,16 +236,16 @@ class MainActivity : AppCompatActivity() {
         stickerView.addSticker(DrawableSticker(drawable2), Sticker.Position.BOTTOM or Sticker.Position.LEFT)
         val bubble =
             ContextCompat.getDrawable(this, R.drawable.bubble)
-        val textSticker = TextSticker(applicationContext)
-        textSticker.withUnderline(true)
-        stickerView.addSticker(
-            textSticker
-                .setDrawable(bubble!!)
-                .setText("Sticker\n")
-                .setMaxTextSize(14f)
-                .resizeText()
-            , Sticker.Position.TOP
-        )
+//        val textSticker = TextSticker(applicationContext)
+//        textSticker.withUnderline(true)
+//        stickerView.addSticker(
+//            textSticker
+//                .setDrawable(bubble!!)
+//                .setText("Sticker\n")
+//                .setMaxTextSize(14f)
+//                .resizeText()
+//            , Sticker.Position.TOP
+//        )
     }
 
     override fun onRequestPermissionsResult(
@@ -212,15 +256,6 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == PERM_RQST_CODE && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             loadSticker()
         }
-    }
-
-    fun testAdd(view: View) {
-        val sticker = TextSticker(this)
-        sticker.text = "Hello, world!\n Selfix"
-        sticker.setTextColor(Color.BLUE)
-        sticker.setTextAlign(Layout.Alignment.ALIGN_CENTER)
-        sticker.resizeText()
-        stickerView.addSticker(sticker)
     }
 
     companion object {

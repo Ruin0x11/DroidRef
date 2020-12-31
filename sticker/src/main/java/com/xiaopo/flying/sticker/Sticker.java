@@ -375,9 +375,9 @@ public abstract class Sticker {
     }
 
     public void setCroppedBounds(RectF cropped) {
-        croppedBounds.left = Math.min(Math.max(realBounds.left, cropped.left), croppedBounds.right - 1);
-        croppedBounds.top = Math.min(Math.max(realBounds.top, cropped.top), croppedBounds.bottom - 1);
         croppedBounds.right = Math.max(Math.min(realBounds.right, cropped.right), 1);
         croppedBounds.bottom = Math.max(Math.min(realBounds.bottom, cropped.bottom), 1);
+        croppedBounds.left = Math.min(Math.max(realBounds.left, cropped.left), croppedBounds.right - 1);
+        croppedBounds.top = Math.min(Math.max(realBounds.top, cropped.top), croppedBounds.bottom - 1);
     }
 }

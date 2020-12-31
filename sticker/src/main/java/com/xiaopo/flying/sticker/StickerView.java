@@ -93,6 +93,7 @@ public class StickerView extends FrameLayout {
     private final PointF currentCenterPoint = new PointF();
     private final float[] tmp = new float[2];
     private PointF midPoint = new PointF();
+    private int pointerId = -1;
     // endregion
     private final int touchSlop;
 
@@ -487,12 +488,17 @@ public class StickerView extends FrameLayout {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
 //                Timber.d("CANVAS MotionEvent.ACTION_DOWN event__: %s", event.toString());
+                Timber.d("ACTION DOWN %s", event);
 
-                if (!onTouchDownCanvas(event)) {
-                    return false;
+                if (pointerId == -1) {
+                    if (!onTouchDownCanvas(event)) {
+                        return false;
+                    }
                 }
                 break;
             case MotionEvent.ACTION_POINTER_DOWN:
+                Timber.d("POINTER DOWN %s", event);
+
                 oldDistance = calculateDistance(event);
                 oldRotation = calculateRotation(event);
                 midPoint = calculateMidPoint(event);
@@ -502,15 +508,28 @@ public class StickerView extends FrameLayout {
                 break;
 
             case MotionEvent.ACTION_MOVE:
+                if (event.getPointerId(0) != pointerId) {
+                    calculateDown(event);
+                    pointerId = event.getPointerId(0);
+                    Timber.d("HIT %s", event);
+                }
                 handleMoveActionCanvas(event);
                 invalidate();
                 break;
 
             case MotionEvent.ACTION_UP:
-                onTouchUpCanvas(event);
+                Timber.d("ACTION UP %s", event);
+
+                for (int i = 0; i < event.getPointerCount(); i++) {
+                    if (event.getPointerId(i) == pointerId) {
+                        onTouchUpCanvas(event);
+                        break;
+                    }
+                }
                 break;
 
             case MotionEvent.ACTION_POINTER_UP:
+                Timber.d("POINTER UP %s", event);
                 if (currentMode == ActionMode.CANVAS_ZOOM_WITH_TWO_FINGER) {
                     if (!onTouchDownCanvas(event)) {
                         return false;
@@ -519,6 +538,8 @@ public class StickerView extends FrameLayout {
                     currentMode = ActionMode.NONE;
                 }
                 break;
+            default:
+                Timber.d("Unknown %s", event);
         }
 
         return true;
@@ -533,6 +554,7 @@ public class StickerView extends FrameLayout {
 
         calculateDown(event);
 
+        pointerId = event.getPointerId(0);
         midPoint = calculateMidPoint();
         oldDistance = calculateDistance(midPoint.x, midPoint.y, downX, downY);
         oldRotation = calculateRotation(midPoint.x, midPoint.y, downX, downY);
@@ -546,6 +568,7 @@ public class StickerView extends FrameLayout {
     protected void onTouchUpCanvas(@NonNull MotionEvent event) {
         long currentTime = SystemClock.uptimeMillis();
 
+        pointerId = -1;
         currentMode = ActionMode.NONE;
         lastClickTime = currentTime;
     }
@@ -554,6 +577,7 @@ public class StickerView extends FrameLayout {
         switch (currentMode) {
             case ActionMode.CANVAS_DRAG:
                 moveMatrix.set(stickerWorldMatrix);
+                Timber.d("%f %f %f %f", event.getX(), event.getY(), downX, downY);
                 moveMatrix.postTranslate(event.getX() - downX, event.getY() - downY);
                 canvasMatrix.set(moveMatrix);
                 updateCanvasMatrix();
@@ -585,7 +609,7 @@ public class StickerView extends FrameLayout {
         }
 
         switch (event.getActionMasked()) {
-            case MotionEvent.ACTION_DOWN:
+            case MotionEvent.ACTION_DOWN:           
 //                Timber.d("MotionEvent.ACTION_DOWN event__: %s", event.toString());
 
                 if (onStickerAreaTouchListener != null) {
@@ -599,7 +623,7 @@ public class StickerView extends FrameLayout {
                     return false;
                 }
                 break;
-//            case MotionEvent.ACTION_POINTER_DOWN:
+            case MotionEvent.ACTION_POINTER_DOWN:
 //                oldDistance = calculateDistanceScaled(event);
 //                oldRotation = calculateRotation(event);
 //                midPoint = calculateMidPoint(event);
@@ -611,7 +635,7 @@ public class StickerView extends FrameLayout {
 //                    stickerScreenMatrix.set(handlingSticker.getFinalMatrix());
 //                    currentMode = ActionMode.ZOOM_WITH_TWO_FINGER;
 //                }
-//                break;
+                break;
 
             case MotionEvent.ACTION_MOVE:
                 handleMoveAction(event);
@@ -910,7 +934,6 @@ public class StickerView extends FrameLayout {
             float x = icon.getX() + icon.getIconRadius() - downXScaled;
             float y = icon.getY() + icon.getIconRadius() - downYScaled;
             float distance_pow_2 = x * x + y * y;
-            Timber.d("%f,%f %f %f %f %f %f", icon.getX(), icon.getY(),  pos.x, pos.y, downXScaled, downYScaled, distance_pow_2);
             if (distance_pow_2 <= Math.pow((icon.getIconRadius() + icon.getIconRadius()) * 1.2f, 2)) {
                 return icon;
             }
@@ -1220,9 +1243,11 @@ public class StickerView extends FrameLayout {
         heightScaleFactor = (float) getHeight() / sticker.getDrawable().getIntrinsicHeight();
         scaleFactor = Math.min(widthScaleFactor, heightScaleFactor);
 
-        sticker.getMatrix()
-                .postScale(scaleFactor / 2, scaleFactor / 2, getWidth() / 2f, getHeight() / 2f);
+//        sticker.getMatrix()
+//                .postScale(scaleFactor / 2, scaleFactor / 2, getWidth() / 2f, getHeight() / 2f);
 
+        sticker.setCanvasMatrix(canvasMatrix);
+        sticker.recalcFinalMatrix();
         handlingSticker = sticker;
         stickers.add(sticker);
         if (onStickerOperationListener != null) {
@@ -1232,25 +1257,33 @@ public class StickerView extends FrameLayout {
     }
 
     protected void setStickerPosition(@NonNull Sticker sticker, @Sticker.Position int position) {
-        float width = getWidth();
-        float height = getHeight();
-        float offsetX = width - sticker.getWidth();
-        float offsetY = height - sticker.getHeight();
+        float centerX = 0;
+        float centerY = 0;
+        float temp2[] = {sticker.getWidth(), sticker.getHeight()};
+        canvasMatrix.mapVectors(temp2);
+        float sw = temp2[0];
+        float sh = temp2[1];
+
         if ((position & Sticker.Position.TOP) > 0) {
-            offsetY /= 4f;
+            centerY = 0f;
         } else if ((position & Sticker.Position.BOTTOM) > 0) {
-            offsetY *= 3f / 4f;
+            centerY = getHeight() - sh;
         } else {
-            offsetY /= 2f;
+            centerY = (getHeight() / 2f) - (sh / 2f);
         }
         if ((position & Sticker.Position.LEFT) > 0) {
-            offsetX /= 4f;
+            centerX = 0f;
         } else if ((position & Sticker.Position.RIGHT) > 0) {
-            offsetX *= 3f / 4f;
+            centerX = getWidth() - sw;
         } else {
-            offsetX /= 2f;
+            centerX = (getWidth() / 2f) - (sw / 2f);
         }
-        sticker.getMatrix().postTranslate(offsetX, offsetY);
+
+        float[] temp = {centerX, centerY};
+        Matrix a = new Matrix();
+        canvasMatrix.invert(a);
+        a.mapPoints(temp);
+        sticker.getMatrix().postTranslate(temp[0], temp[1]);
     }
 
     @NonNull

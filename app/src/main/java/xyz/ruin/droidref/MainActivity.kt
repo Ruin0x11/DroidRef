@@ -187,7 +187,7 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.getDrawable(this, R.drawable.h2037984)
         val drawable2 =
             ContextCompat.getDrawable(this, R.drawable.h2037349)
-        stickerView.addSticker(DrawableSticker(drawable))
+        stickerView.addSticker(DrawableSticker(drawable), Sticker.Position.TOP or Sticker.Position.LEFT)
         stickerView.addSticker(DrawableSticker(drawable1), Sticker.Position.BOTTOM or Sticker.Position.RIGHT)
         stickerView.addSticker(DrawableSticker(drawable2), Sticker.Position.BOTTOM or Sticker.Position.LEFT)
         val bubble =

@@ -1,0 +1,2 @@
+rootProject.name='DroidRef'
+include ':app', ':sticker'

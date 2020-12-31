@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="StickerView">
+        <attr name="showIcons" format="boolean" />
+        <attr name="showBorder" format="boolean" />
+        <attr name="bringToFrontCurrentSticker" format="boolean" />
+        <attr name="borderColor" format="color" />
+        <attr name="borderAlpha" format="integer" />
+        <attr name="showAuxiliaryLines" format="boolean" />
+        <attr name="accentColor" format="color" />
+        <attr name="dashColor" format="color" />
+        <attr name="withStyleIcon" format="boolean" />
+    </declare-styleable>
+</resources>

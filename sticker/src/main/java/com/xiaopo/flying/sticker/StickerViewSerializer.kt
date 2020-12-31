@@ -113,12 +113,12 @@ class StickerViewSerializer {
         return ZipFile(file).getEntry(METADATA_FILE) != null
     }
 
-    fun deserialize(view: StickerView, file: File, resources: Resources): Boolean {
-        if (!isValidFile(file)) {
-            return false
-        }
+    fun deserialize(view: StickerView, stream: InputStream, resources: Resources): Boolean {
+//        if (!isValidFile(file)) {
+//            return false
+//        }
 
-        val zipStream = ZipInputStream(BufferedInputStream(FileInputStream(file)))
+        val zipStream = ZipInputStream(BufferedInputStream(stream))
 
         view.removeAllStickers()
         view.resetView()

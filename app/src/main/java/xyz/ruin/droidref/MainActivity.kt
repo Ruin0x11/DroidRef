@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.ImageButton
@@ -17,11 +18,13 @@ import android.widget.ToggleButton
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.net.toFile
 import com.xiaopo.flying.sticker.*
 import com.xiaopo.flying.sticker.StickerView.OnStickerOperationListener
 import timber.log.Timber
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
 
 
 class MainActivity : AppCompatActivity() {
@@ -77,16 +80,6 @@ class MainActivity : AppCompatActivity() {
 
         setupButtons()
 
-//        sticker = TextSticker(this)
-//        sticker.drawable = ContextCompat.getDrawable(
-//            applicationContext,
-//            R.drawable.sticker_transparent_background
-//        )!!
-//        sticker.text = "Elad\nאלעד"
-//        sticker.setTextColor(Color.BLACK)
-//        sticker.setTextAlign(Layout.Alignment.ALIGN_CENTER)
-//        sticker.resizeText()
-
         loadSticker()
     }
 
@@ -118,27 +111,66 @@ class MainActivity : AppCompatActivity() {
 
     private fun load() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED
+            != PackageManager.PERMISSION_GRANTED
         ) {
             ActivityCompat.requestPermissions(
-                    this,
-                    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
-                    PERM_RQST_CODE
+                this,
+                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                PERM_RQST_CODE
             )
         }
 
-        // Create a path where we will place our private file on external
-        // storage.
-        val file = File(getExternalFilesDir(null), "test.zip")
+        val intent = Intent()
+        intent.type = "application/zip"
+        intent.action = Intent.ACTION_GET_CONTENT
+        startActivityForResult(Intent.createChooser(intent, "Open Saved File"), INTENT_PICK_SAVED_FILE)
+    }
 
+    private fun doLoad(file: Uri) {
         try {
-            StickerViewSerializer().deserialize(stickerView, file, resources)
+            val stream = contentResolver.openInputStream(file)!!
+            if (!StickerViewSerializer().deserialize(stickerView, stream, resources)) {
+                Toast.makeText(stickerView.context, "Invalid file", Toast.LENGTH_LONG).show()
+                return
+            }
             Toast.makeText(stickerView.context, "Loaded from $file", Toast.LENGTH_SHORT).show()
         } catch (e: IOException) {
             // Unable to create file, likely because external storage is
             // not currently mounted.
             Log.w("ExternalStorage", "Error writing $file", e)
             Toast.makeText(stickerView.context, "Error reading $file", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun addSticker() {
+        val intent = Intent()
+        intent.type = "image/*"
+        intent.action = Intent.ACTION_GET_CONTENT
+        startActivityForResult(Intent.createChooser(intent, "Select Image"), INTENT_PICK_IMAGE)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (resultCode == Activity.RESULT_OK) {
+            when (requestCode) {
+                INTENT_PICK_IMAGE -> {
+                    val selectedImage = data!!.data!!
+
+                    val imageStream = contentResolver.openInputStream(selectedImage)
+                    val bitmap = BitmapFactory.decodeStream(imageStream)
+                    if (bitmap == null) {
+                        Toast.makeText(stickerView.context, "Could not decode image", Toast.LENGTH_SHORT).show()
+                    }
+                    else {
+                        val drawable = BitmapDrawable(resources, bitmap)
+                        stickerView.addSticker(DrawableSticker(drawable))
+                    }
+                }
+                INTENT_PICK_SAVED_FILE -> {
+                    val selectedFile = data!!.data!!
+
+                    doLoad(selectedFile)
+                }
+            }
         }
     }
 
@@ -197,33 +229,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun addSticker() {
-        val intent = Intent()
-        intent.type = "image/*"
-        intent.action = Intent.ACTION_GET_CONTENT
-        startActivityForResult(Intent.createChooser(intent, "Select Image"), INTENT_PICK_IMAGE)
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (resultCode == Activity.RESULT_OK) {
-            when (requestCode) {
-                INTENT_PICK_IMAGE -> {
-                    val selectedImage = data!!.data!!
-
-                    val imageStream = contentResolver.openInputStream(selectedImage)
-                    val bitmap = BitmapFactory.decodeStream(imageStream)
-                    if (bitmap == null) {
-                        Toast.makeText(stickerView.context, "Could not decode image", Toast.LENGTH_SHORT).show()
-                    }
-                    else {
-                        val drawable = BitmapDrawable(resources, bitmap)
-                        stickerView.addSticker(DrawableSticker(drawable))
-                    }
-                }
-            }
-        }
-    }
-
     private fun loadSticker() {
         val drawable =
             ContextCompat.getDrawable(this, R.drawable.h250280)
@@ -262,6 +267,7 @@ class MainActivity : AppCompatActivity() {
         const val PERM_RQST_CODE = 110
 
         const val INTENT_PICK_IMAGE = 1
+        const val INTENT_PICK_SAVED_FILE = 2
     }
 
     class MyStickerOperationListener(private val stickerView: StickerView) : OnStickerOperationListener {

@@ -164,6 +164,56 @@ public abstract class Sticker {
         }
     }
 
+    public float[] getCroppedBoundPoints() {
+        float[] points = new float[8];
+        getCroppedBoundPoints(points);
+        return points;
+    }
+
+    public void getCroppedBoundPoints(@NonNull float[] points) {
+        if (!isFlippedHorizontally) {
+            if (!isFlippedVertically) {
+                points[0] = croppedBounds.left;
+                points[1] = croppedBounds.top;
+                points[2] = croppedBounds.right;
+                points[3] = croppedBounds.top;
+                points[4] = croppedBounds.left;
+                points[5] = croppedBounds.bottom;
+                points[6] = croppedBounds.right;
+                points[7] = croppedBounds.bottom;
+            } else {
+                points[0] = croppedBounds.left;
+                points[1] = croppedBounds.bottom;
+                points[2] = croppedBounds.right;
+                points[3] = croppedBounds.bottom;
+                points[4] = croppedBounds.left;
+                points[5] = croppedBounds.top;
+                points[6] = croppedBounds.right;
+                points[7] = croppedBounds.top;
+            }
+        } else {
+            if (!isFlippedVertically) {
+                points[0] = croppedBounds.right;
+                points[1] = croppedBounds.top;
+                points[2] = croppedBounds.left;
+                points[3] = croppedBounds.top;
+                points[4] = croppedBounds.right;
+                points[5] = croppedBounds.bottom;
+                points[6] = croppedBounds.left;
+                points[7] = croppedBounds.bottom;
+            } else {
+                points[0] = croppedBounds.right;
+                points[1] = croppedBounds.bottom;
+                points[2] = croppedBounds.left;;
+                points[3] = croppedBounds.bottom;
+                points[4] = croppedBounds.right;
+                points[5] = croppedBounds.top;
+                points[6] = croppedBounds.left;
+                points[7] = croppedBounds.top;
+            }
+        }
+    }
+
     @NonNull
     public float[] getMappedBoundPoints() {
         float[] dst = new float[8];
@@ -212,6 +262,18 @@ public abstract class Sticker {
     }
 
     @NonNull
+    public RectF getMappedBoundPre() {
+        RectF dst = new RectF();
+        getMappedBoundPre(dst, getBound());
+        return dst;
+    }
+
+    public void getMappedBoundPre(@NonNull RectF dst, @NonNull RectF bound) {
+        recalcFinalMatrix();
+        finalMatrix.mapRect(dst, bound);
+    }
+
+    @NonNull
     public PointF getCenterPoint() {
         PointF center = new PointF();
         getCenterPoint(center);
@@ -234,7 +296,7 @@ public abstract class Sticker {
         getCenterPoint(dst);
         src[0] = dst.x;
         src[1] = dst.y;
-        getMappedPoints(mappedPoints, src);
+        getMappedPointsPre(mappedPoints, src);
         dst.set(mappedPoints[0], mappedPoints[1]);
     }
 

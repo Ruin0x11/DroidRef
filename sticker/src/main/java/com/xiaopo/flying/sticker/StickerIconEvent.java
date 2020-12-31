@@ -16,7 +16,7 @@ public interface StickerIconEvent {
     void onActionUp(StickerView stickerView, MotionEvent event);
 
     default void onActionLongPress(StickerView stickerView, MotionEvent event) {
-        Timber.e("LongPress_detected on icon");
+//        Timber.e("LongPress_detected on icon");
     }
 
 

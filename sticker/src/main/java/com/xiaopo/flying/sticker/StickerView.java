@@ -174,7 +174,7 @@ public class StickerView extends FrameLayout {
 
         gestureDetector = new GestureDetector(context, new GestureDetector.SimpleOnGestureListener() {
             public void onLongPress(MotionEvent event) {
-                Timber.e("LongPress_detected");
+//                Timber.e("LongPress_detected");
 //                setHapticFeedbackEnabled(true);
                 if (currentMode == ActionMode.ICON) {
                     if (currentIcon != null) {
@@ -400,6 +400,7 @@ public class StickerView extends FrameLayout {
 
             //draw icons
             if (showIcons) {
+                getStickerPointsCropped(handlingSticker, bitmapPoints);
                 float x1 = bitmapPoints[0];
                 float y1 = bitmapPoints[1];
                 float x2 = bitmapPoints[2];
@@ -457,6 +458,7 @@ public class StickerView extends FrameLayout {
         float radius = a.mapRadius(BitmapStickerIcon.DEFAULT_ICON_RADIUS);
         icon.setIconRadius(radius);
         icon.getMatrix().postScale(radius / BitmapStickerIcon.DEFAULT_ICON_RADIUS, radius / BitmapStickerIcon.DEFAULT_ICON_RADIUS, x, y);
+        icon.recalcFinalMatrix();
     }
 
     @Override
@@ -479,9 +481,12 @@ public class StickerView extends FrameLayout {
     }
 
     private boolean handleCanvasMotion(MotionEvent event) {
+        handlingSticker = null;
+        currentIcon = null;
+
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
-                Timber.d("CANVAS MotionEvent.ACTION_DOWN event__: %s", event.toString());
+//                Timber.d("CANVAS MotionEvent.ACTION_DOWN event__: %s", event.toString());
 
                 if (!onTouchDownCanvas(event)) {
                     return false;
@@ -581,7 +586,7 @@ public class StickerView extends FrameLayout {
 
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
-                Timber.d("MotionEvent.ACTION_DOWN event__: %s", event.toString());
+//                Timber.d("MotionEvent.ACTION_DOWN event__: %s", event.toString());
 
                 if (onStickerAreaTouchListener != null) {
                     onStickerAreaTouchListener.onStickerAreaTouch();
@@ -594,19 +599,19 @@ public class StickerView extends FrameLayout {
                     return false;
                 }
                 break;
-            case MotionEvent.ACTION_POINTER_DOWN:
-                oldDistance = calculateDistanceScaled(event);
-                oldRotation = calculateRotation(event);
-                midPoint = calculateMidPoint(event);
-
-                if (handlingSticker != null
-                        // && isInStickerArea(handlingSticker, event.getX(1), event.getY(1))
-                        && findCurrentIconTouched() == null) {
-                    stickerWorldMatrix.set(handlingSticker.getMatrix());
-                    stickerScreenMatrix.set(handlingSticker.getFinalMatrix());
-                    currentMode = ActionMode.ZOOM_WITH_TWO_FINGER;
-                }
-                break;
+//            case MotionEvent.ACTION_POINTER_DOWN:
+//                oldDistance = calculateDistanceScaled(event);
+//                oldRotation = calculateRotation(event);
+//                midPoint = calculateMidPoint(event);
+//
+//                if (handlingSticker != null
+//                        // && isInStickerArea(handlingSticker, event.getX(1), event.getY(1))
+//                        && findCurrentIconTouched() == null) {
+//                    stickerWorldMatrix.set(handlingSticker.getMatrix());
+//                    stickerScreenMatrix.set(handlingSticker.getFinalMatrix());
+//                    currentMode = ActionMode.ZOOM_WITH_TWO_FINGER;
+//                }
+//                break;
 
             case MotionEvent.ACTION_MOVE:
                 handleMoveAction(event);
@@ -659,7 +664,7 @@ public class StickerView extends FrameLayout {
         if (currentIcon != null) {
             currentMode = ActionMode.ICON;
             currentIcon.onActionDown(this, event);
-            Timber.d("current_icon: %s", currentIcon.getDrawableName());
+//            Timber.d("current_icon: %s", currentIcon.getDrawableName());
         } else {
             handlingSticker = findHandlingSticker();
         }
@@ -687,7 +692,7 @@ public class StickerView extends FrameLayout {
 
         if (currentMode == ActionMode.ICON && currentIcon != null && handlingSticker != null) {
             currentIcon.onActionUp(this, event);
-            Timber.d("current_icon: %s", currentIcon.getDrawableName());
+//            Timber.d("current_icon: %s", currentIcon.getDrawableName());
         }
 
         if (currentMode == ActionMode.DRAG
@@ -738,7 +743,7 @@ public class StickerView extends FrameLayout {
                         constrainSticker(handlingSticker);
                     }
                     if (onStickerOperationListener != null) {
-                        Timber.d("MotionEvent.ACTION_MOVE event__: %s", event.toString());
+//                        Timber.d("MotionEvent.ACTION_MOVE event__: %s", event.toString());
                         onStickerOperationListener.onStickerMoved(handlingSticker);
                     }
                 }
@@ -773,12 +778,24 @@ public class StickerView extends FrameLayout {
 
     public void zoomAndRotateSticker(@Nullable Sticker sticker, @NonNull MotionEvent event) {
         if (sticker != null) {
-            float newDistance = calculateDistanceScaled(midPoint.x, midPoint.y, event.getX(), event.getY());
-            float newRotation = calculateRotation(midPoint.x, midPoint.y, event.getX(), event.getY());
+            float[] temp = {event.getX(), event.getY()};
+            Matrix a = new Matrix();
+            canvasMatrix.invert(a);
+            a.mapPoints(temp);
+
+            float[] temp2 = {sticker.getCenterPoint().x, sticker.getCenterPoint().y};
+            stickerWorldMatrix.mapPoints(temp2);
+            //canvasMatrix.mapPoints(temp2);
+            midPoint.x = temp2[0];
+            midPoint.y = temp2[1];
+
+            float oldDistance = calculateDistance(midPoint.x, midPoint.y, downXScaled, downYScaled);
+            float newDistance = calculateDistance(midPoint.x, midPoint.y, temp[0], temp[1]);
+            float newRotation = calculateRotation(midPoint.x, midPoint.y, temp[0], temp[1]);
+            Timber.d("%f,%f %f,%f  %f,%f  %f,%f  %f %f", midPoint.x, midPoint.y, temp[0], temp[1], event.getX(), event.getY(), downXScaled, downYScaled, oldDistance, newDistance);
 
             moveMatrix.set(stickerWorldMatrix);
-            moveMatrix.postScale(newDistance / oldDistance, newDistance / oldDistance, midPoint.x,
-                    midPoint.y);
+            moveMatrix.postScale(newDistance / oldDistance, newDistance / oldDistance, midPoint.x, midPoint.y);
             if (isRotationEnabled()) {
                 moveMatrix.postRotate(newRotation - oldRotation, midPoint.x, midPoint.y);
             }
@@ -791,8 +808,27 @@ public class StickerView extends FrameLayout {
     }
 
     private void resetStickerCropping(Sticker sticker) {
-        sticker.setCroppedBounds(new RectF(sticker.getRealBounds()));
+        if (sticker != null && !locked) {
+            sticker.setCroppedBounds(new RectF(sticker.getRealBounds()));
+            invalidate();
+        }
     }
+
+    public void resetCurrentStickerZoom() {
+        resetStickerZoom(handlingSticker);
+    }
+
+    private void resetStickerZoom(Sticker sticker) {
+        if (sticker != null && !locked) {
+            float[] temp2 = {sticker.getCenterPoint().x, sticker.getCenterPoint().y};
+            sticker.getMatrix().mapPoints(temp2);
+            sticker.getMatrix().reset();
+            sticker.getMatrix().postTranslate(temp2[0] - sticker.getWidth() / 2f, temp2[1] - sticker.getHeight() / 2f);
+            sticker.recalcFinalMatrix();
+            invalidate();
+        }
+    }
+
 
     protected void constrainSticker(@NonNull Sticker sticker) {
         float moveX = 0;
@@ -871,9 +907,10 @@ public class StickerView extends FrameLayout {
     protected BitmapStickerIcon findCurrentIconTouched() {
         for (BitmapStickerIcon icon : activeIcons) {
             PointF pos = icon.getMappedPos();
-            float x = pos.x + icon.getIconRadius() - downX;
-            float y = pos.y + icon.getIconRadius() - downY;
+            float x = icon.getX() + icon.getIconRadius() - downXScaled;
+            float y = icon.getY() + icon.getIconRadius() - downYScaled;
             float distance_pow_2 = x * x + y * y;
+            Timber.d("%f,%f %f %f %f %f %f", icon.getX(), icon.getY(),  pos.x, pos.y, downXScaled, downYScaled, distance_pow_2);
             if (distance_pow_2 <= Math.pow((icon.getIconRadius() + icon.getIconRadius()) * 1.2f, 2)) {
                 return icon;
             }
@@ -927,7 +964,9 @@ public class StickerView extends FrameLayout {
         float[] pts = {event.getX(0), event.getY(0)};
         downX = pts[0];
         downY = pts[1];
-        canvasMatrix.mapPoints(pts);
+        Matrix a = new Matrix();
+        canvasMatrix.invert(a);
+        a.mapPoints(pts);
         downXScaled = pts[0];
         downYScaled = pts[1];
     }
@@ -1227,6 +1266,15 @@ public class StickerView extends FrameLayout {
             return;
         }
         sticker.getBoundPoints(bounds);
+        sticker.getMappedPointsPre(dst, bounds);
+    }
+
+    public void getStickerPointsCropped(@Nullable Sticker sticker, @NonNull float[] dst) {
+        if (sticker == null) {
+            Arrays.fill(dst, 0);
+            return;
+        }
+        sticker.getCroppedBoundPoints(bounds);
         sticker.getMappedPointsPre(dst, bounds);
     }
 

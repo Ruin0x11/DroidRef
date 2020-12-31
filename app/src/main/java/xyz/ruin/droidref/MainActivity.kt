@@ -1,7 +1,6 @@
 package xyz.ruin.droidref
 
 import android.Manifest
-import android.R.attr.bitmap
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.DialogInterface
@@ -11,10 +10,10 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
-import android.provider.MediaStore
 import android.text.Layout
 import android.view.View
 import android.widget.ImageButton
+import android.widget.Toast
 import android.widget.ToggleButton
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -23,7 +22,6 @@ import com.xiaopo.flying.sticker.*
 import com.xiaopo.flying.sticker.StickerView.OnStickerOperationListener
 import com.xiaopo.flying.sticker.extensions.withUnderline
 import timber.log.Timber
-import java.io.InputStream
 
 
 class MainActivity : AppCompatActivity() {
@@ -143,6 +141,16 @@ class MainActivity : AppCompatActivity() {
         buttonCrop.setOnCheckedChangeListener { _, isToggled ->
             stickerView.setCropActive(isToggled)
         }
+
+        val buttonResetZoom = findViewById<ImageButton>(R.id.buttonResetZoom)
+        buttonResetZoom.setOnClickListener { _ ->
+            stickerView.resetCurrentStickerZoom()
+        }
+
+        val buttonResetCrop = findViewById<ImageButton>(R.id.buttonResetCrop)
+        buttonResetCrop.setOnClickListener { _ ->
+            stickerView.resetCurrentStickerCropping()
+        }
     }
 
     private fun addSticker() {
@@ -157,21 +165,16 @@ class MainActivity : AppCompatActivity() {
             when (requestCode) {
                 INTENT_PICK_IMAGE -> {
                     val selectedImage = data!!.data!!
-                    val filePathColumn = arrayOf(MediaStore.Images.Media.DATA)
 
-                    val cursor = contentResolver.query(
-                        selectedImage,
-                        filePathColumn, null, null, null
-                    )!!
-                    cursor.moveToFirst()
-
-                    val columnIndex = cursor.getColumnIndex(filePathColumn[0])
-                    val picturePath = cursor.getString(columnIndex)
-                    cursor.close()
-
-                    val bitmap = BitmapFactory.decodeFile(picturePath)
-                    val drawable = BitmapDrawable(resources, bitmap)
-                    stickerView.addSticker(DrawableSticker(drawable))
+                    val imageStream = contentResolver.openInputStream(selectedImage)
+                    val bitmap = BitmapFactory.decodeStream(imageStream)
+                    if (bitmap == null) {
+                        Toast.makeText(stickerView.context, "Could not decode image", Toast.LENGTH_SHORT).show()
+                    }
+                    else {
+                        val drawable = BitmapDrawable(resources, bitmap)
+                        stickerView.addSticker(DrawableSticker(drawable))
+                    }
                 }
             }
         }
@@ -228,7 +231,7 @@ class MainActivity : AppCompatActivity() {
 
     class MyStickerOperationListener(private val stickerView: StickerView) : OnStickerOperationListener {
         override fun onStickerAdded(sticker: Sticker) {
-            Timber.d("onStickerAdded")
+//            Timber.d("onStickerAdded")
         }
 
         override fun onStickerClicked(sticker: Sticker) {
@@ -238,39 +241,39 @@ class MainActivity : AppCompatActivity() {
                 stickerView.replace(sticker)
                 stickerView.invalidate()
             }
-            Timber.d("onStickerClicked")
+//            Timber.d("onStickerClicked")
         }
 
         override fun onStickerDeleted(sticker: Sticker) {
-            Timber.d("onStickerDeleted")
+//            Timber.d("onStickerDeleted")
         }
 
         override fun onStickerDragFinished(sticker: Sticker) {
-            Timber.d("onStickerDragFinished")
+//            Timber.d("onStickerDragFinished")
         }
 
         override fun onStickerTouchedDown(sticker: Sticker) {
-            Timber.d("onStickerTouchedDown")
+//            Timber.d("onStickerTouchedDown")
         }
 
         override fun onStickerZoomFinished(sticker: Sticker) {
-            Timber.d("onStickerZoomFinished")
+//            Timber.d("onStickerZoomFinished")
         }
 
         override fun onStickerFlipped(sticker: Sticker) {
-            Timber.d("onStickerFlipped")
+//            Timber.d("onStickerFlipped")
         }
 
         override fun onStickerDoubleTapped(sticker: Sticker) {
-            Timber.d("onDoubleTapped: double tap will be with two click")
+//            Timber.d("onDoubleTapped: double tap will be with two click")
         }
 
         override fun onStickerMoved(sticker: Sticker) {
-            Timber.d("onStickerMoved")
+//            Timber.d("onStickerMoved")
         }
 
         override fun onStickerTouchedAuxiliaryLines(sticker: Sticker) {
-            Timber.d("onStickerTouchedAuxiliaryLines")
+//            Timber.d("onStickerTouchedAuxiliaryLines")
         }
     }
 }

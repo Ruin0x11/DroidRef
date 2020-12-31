@@ -1,10 +1,7 @@
 package com.xiaopo.flying.sticker;
 
 import android.content.Context;
-import android.graphics.Canvas;
-import android.graphics.Matrix;
-import android.graphics.Rect;
-import android.graphics.Typeface;
+import android.graphics.*;
 import android.graphics.drawable.Drawable;
 import android.text.Layout;
 import android.text.StaticLayout;
@@ -36,7 +33,6 @@ public class TextSticker extends Sticker {
     private static final String mEllipsis = "\u2026";
 
     private final Context context;
-    private final Rect realBounds;
     private final Rect textRect;
     protected final TextPaint textPaint;
     private Drawable drawable;
@@ -77,6 +73,7 @@ public class TextSticker extends Sticker {
         }
         textPaint = new TextPaint(TextPaint.ANTI_ALIAS_FLAG);
         realBounds = new Rect(0, 0, getWidth(), getHeight());
+        croppedBounds = new RectF(realBounds);
         textRect = new Rect(0, 0, getWidth(), getHeight());
         minTextSizePixels = convertSpToPx(6);
         maxTextSizePixels = convertSpToPx(32);

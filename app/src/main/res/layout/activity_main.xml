@@ -8,87 +8,88 @@
     android:orientation="vertical"
     tools:context=".MainActivity">
 
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:background="@color/colorPrimary">
 
-    </androidx.appcompat.widget.Toolbar>
+    <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
 
-    <com.xiaopo.flying.sticker.StickerView
-        android:id="@+id/sticker_view"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_gravity="center"
-        android:layout_weight="1"
-        app:showBorder="true"
-        app:showIcons="true">
+        <com.xiaopo.flying.sticker.StickerView
+                android:id="@+id/sticker_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                app:showBorder="true"
+                app:showIcons="true"
+                app:showAuxiliaryLines="false" android:layout_gravity="center">
 
-        <ImageView
-                android:layout_width="61dp"
-                android:layout_height="58dp" app:srcCompat="@android:drawable/ic_lock_idle_lock"
-                android:id="@+id/lockIcon" android:layout_gravity="bottom|top|left" android:tint="#40FFFFFF"/>
-        <View
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" android:id="@+id/view" android:backgroundTint="#303030"
-                android:foregroundTint="#303030" android:background="#303030" android:foreground="#303030"/>
-    </com.xiaopo.flying.sticker.StickerView>
-
-
-    <HorizontalScrollView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@android:color/black"
-        android:scrollbars="none">
-
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <Button
-                android:layout_width="wrap_content"
+            <View
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:id="@+id/view" android:backgroundTint="#303030"
+                    android:foregroundTint="#303030" android:background="#303030" android:foreground="#303030"/>
+        </com.xiaopo.flying.sticker.StickerView>
+        <HorizontalScrollView
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:onClick="reset"
-                android:text="Reset" />
+                android:background="@android:color/transparent"
+                android:scrollbars="none" android:foreground="@android:color/transparent"
+                android:layout_alignParentTop="true">
 
-            <Button
-                android:layout_width="wrap_content"
+            <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="@android:dimen/app_icon_size"
+                    android:orientation="horizontal">
+                <ImageButton
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent" app:srcCompat="@drawable/ic_folder_open_black_24dp"
+                        android:id="@+id/buttonOpen" android:layout_weight="1"/>
+                <ImageButton
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent" app:srcCompat="@drawable/ic_save_black_24dp"
+                        android:id="@+id/buttonSave" android:layout_weight="1"/>
+                <ImageButton
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent" app:srcCompat="@drawable/ic_note_add_black_24dp"
+                        android:id="@+id/buttonNew" android:layout_weight="1"/>
+            </LinearLayout>
+        </HorizontalScrollView>
+        <HorizontalScrollView
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:onClick="testReplace"
-                android:text="Replace" />
+                android:background="@android:color/transparent"
+                android:scrollbars="none" android:visibility="visible" android:foreground="@android:color/transparent"
+                android:layout_alignParentBottom="true">
 
-            <Button
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:onClick="testRemove"
-                android:text="Remove" />
-
-            <Button
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:onClick="testRemoveAll"
-                android:text="RemoveAll" />
-
-            <Button
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:onClick="testLock"
-                android:text="Lock" />
-
-            <Button
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:onClick="testAdd"
-                android:text="Add" />
-
-        </LinearLayout>
-    </HorizontalScrollView>
+            <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal">
+                <ImageButton
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent" app:srcCompat="@drawable/ic_add_box_black_24dp"
+                        android:id="@+id/buttonAdd" android:layout_weight="1"/>
+                <ImageButton
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent" app:srcCompat="@drawable/ic_refresh_black_24dp"
+                        android:id="@+id/buttonReset" android:layout_weight="1"/>
+                <ToggleButton
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:id="@+id/buttonLock" android:layout_weight="1"
+                        android:drawableTop="@drawable/ic_lock_open_black_24dp"
+                        android:gravity="center"
+                        android:textOff=""
+                        android:textOn=""
+                        android:textSize="0dp" android:minWidth="1dp"/>
+                <ToggleButton
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:id="@+id/buttonCrop" android:layout_weight="1"
+                        android:drawableTop="@drawable/ic_crop_black_24dp"
+                        android:gravity="center"
+                        android:textOff=""
+                        android:textOn=""
+                        android:textSize="0dp" android:minWidth="1dp"/>
+            </LinearLayout>
+        </HorizontalScrollView>
+    </RelativeLayout>
 </LinearLayout>

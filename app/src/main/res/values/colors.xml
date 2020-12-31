@@ -5,4 +5,6 @@
   <color name="colorAccent">@android:color/white</color>
 
   <color name="sticker_border">#ff666666</color>
+    <color name="disabled">#686868</color>
+  <color name="enabled">#4FC3F7</color>
 </resources>

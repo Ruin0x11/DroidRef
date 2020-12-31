@@ -1,8 +1,7 @@
 package com.xiaopo.flying.sticker;
 
-import android.graphics.Canvas;
-import android.graphics.Matrix;
-import android.graphics.Rect;
+import android.graphics.*;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 
 import androidx.annotation.IntRange;
@@ -14,11 +13,11 @@ import androidx.annotation.NonNull;
 public class DrawableSticker extends Sticker {
 
     private Drawable drawable;
-    private Rect realBounds;
 
     public DrawableSticker(Drawable drawable) {
         this.drawable = drawable;
         realBounds = new Rect(0, 0, getWidth(), getHeight());
+        croppedBounds = new RectF(realBounds);
     }
 
     @NonNull
@@ -32,13 +31,19 @@ public class DrawableSticker extends Sticker {
         this.drawable = drawable;
         return this;
     }
-
     @Override
     public void draw(@NonNull Canvas canvas) {
         canvas.save();
         canvas.concat(getFinalMatrix());
-        drawable.setBounds(realBounds);
-        drawable.draw(canvas);
+        if (true) {
+            canvas.clipRect(croppedBounds);
+            drawable.setBounds(realBounds);
+            drawable.draw(canvas);
+        }
+        else {
+            drawable.setBounds(realBounds);
+            drawable.draw(canvas);
+        }
         canvas.restore();
     }
 
@@ -65,9 +70,5 @@ public class DrawableSticker extends Sticker {
         if (drawable != null) {
             drawable = null;
         }
-    }
-
-    public Rect getRealBounds() {
-        return realBounds;
     }
 }

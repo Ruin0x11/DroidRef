@@ -71,6 +71,8 @@ public class StickerView extends FrameLayout {
 
     private final List<Sticker> stickers = new ArrayList<>();
     private final List<BitmapStickerIcon> icons = new ArrayList<>(4);
+    private final List<BitmapStickerIcon> cropIcons = new ArrayList<>(4);
+    private List<BitmapStickerIcon> activeIcons = new ArrayList<>(4);
 
     private final Paint borderPaint = new Paint();
     private final Paint auxiliaryLinePaint = new Paint();
@@ -122,6 +124,7 @@ public class StickerView extends FrameLayout {
     private int minClickDelayTime = DEFAULT_MIN_CLICK_DELAY_TIME;
 
     private final boolean withStyleIcon;
+    private boolean isCropActive;
 
     @ColorInt
     private final int accentColor;
@@ -180,8 +183,17 @@ public class StickerView extends FrameLayout {
                 }
             }
         });
+
+        activeIcons = icons;
+
+        resetView();
     }
 
+    public void resetView() {
+        canvasMatrix.set(new Matrix());
+        updateCanvasMatrix();
+        invalidate();
+    }
 
     public void configDefaultIcons() {
         BitmapStickerIcon deleteIcon = new BitmapStickerIcon(
@@ -195,6 +207,24 @@ public class StickerView extends FrameLayout {
         icons.clear();
         icons.add(deleteIcon);
         icons.add(zoomIcon);
+
+        BitmapStickerIcon cropLeftTop = new BitmapStickerIcon(getContext(), R.drawable.ic_scale, BitmapStickerIcon.LEFT_TOP);
+        cropLeftTop.setIconEvent(new CropIconEvent(BitmapStickerIcon.LEFT_TOP));
+
+        BitmapStickerIcon cropRightTop = new BitmapStickerIcon(getContext(), R.drawable.ic_scale, BitmapStickerIcon.RIGHT_TOP);
+        cropRightTop.setIconEvent(new CropIconEvent(BitmapStickerIcon.RIGHT_TOP));
+
+        BitmapStickerIcon cropLeftBottom = new BitmapStickerIcon(getContext(), R.drawable.ic_scale, BitmapStickerIcon.LEFT_BOTTOM);
+        cropLeftBottom.setIconEvent(new CropIconEvent(BitmapStickerIcon.LEFT_BOTTOM));
+
+        BitmapStickerIcon cropRightBottom = new BitmapStickerIcon(getContext(), R.drawable.ic_scale, BitmapStickerIcon.RIGHT_BOTTOM);
+        cropRightBottom.setIconEvent(new CropIconEvent(BitmapStickerIcon.RIGHT_BOTTOM));
+
+        cropIcons.clear();
+        cropIcons.add(cropLeftTop);
+        cropIcons.add(cropRightTop);
+        cropIcons.add(cropLeftBottom);
+        cropIcons.add(cropRightBottom);
 
         if (withStyleIcon) {
             Timber.d("withStyleIcon_!");
@@ -251,143 +281,158 @@ public class StickerView extends FrameLayout {
         drawStickers(canvas);
     }
 
+    private void drawBorder(Canvas canvas, float[] bitmapPoints, int color, int width) {
+        float x1 = bitmapPoints[0];
+        float y1 = bitmapPoints[1];
+        float x2 = bitmapPoints[2];
+        float y2 = bitmapPoints[3];
+        float x3 = bitmapPoints[4];
+        float y3 = bitmapPoints[5];
+        float x4 = bitmapPoints[6];
+        float y4 = bitmapPoints[7];
+
+        canvas.save();
+        canvas.concat(canvasMatrix);
+        if (showBorder) {
+            canvas.drawLine(x1, y1, x2, y2, borderPaint);
+            canvas.drawLine(x1, y1, x3, y3, borderPaint);
+            canvas.drawLine(x2, y2, x4, y4, borderPaint);
+            canvas.drawLine(x4, y4, x3, y3, borderPaint);
+        }
+
+        float rotation = calculateRotation(x4, y4, x3, y3);
+        float roundedRotation = roundOff(rotation);
+
+        if (showAuxiliaryLines) {
+            if (previousRotation != roundedRotation) {
+                previousRotation = roundedRotation;
+                float quotient = Math.abs(rotation) / 45;
+                float diff = Math.round(quotient) - quotient;
+//                        Timber.d("rotation__: %s", rotation);
+//                        Timber.d("previousRotation: %s", previousRotation);
+//                        Timber.d("Math.abs(rotation) / 45: %s", quotient);
+//                        Timber.d("round: %s", Math.round(quotient));
+//                        Timber.d("diff: %s", diff);
+                if (Math.abs(diff) < 0.0075) {
+                    auxiliaryLinePaint.setColor(color);
+                    auxiliaryLinePaint.setStrokeWidth(width);
+                    auxiliaryLinePaint.setPathEffect(dashPathEffect);
+                    float startX = midValue(x1, x3);
+                    float startY = midValue(y1, y3);
+                    float stopX = midValue(x2, x4);
+                    float stopY = midValue(y2, y4);
+                    float deltaX = stopX - startX;
+                    if (deltaX != 0) {
+                        float deltaY = stopY - startY;
+                        float slope = deltaY / deltaX;
+                        float yLeft = slope * (0 - startX) + startY;
+                        float yRight = slope * (this.getWidth() - startX) + startY;
+                        canvas.drawLine(0, yLeft, this.getWidth(), yRight, auxiliaryLinePaint);
+                    } else {
+                        canvas.drawLine(startX, 0, startX, this.getHeight(), auxiliaryLinePaint);
+                    }
+                }
+            }
+
+            if (currentMode == ActionMode.DRAG) {
+                auxiliaryLinePaint.setColor(accentColor);
+                auxiliaryLinePaint.setPathEffect(null);
+
+                int maxX = this.getWidth();
+                int middleX = maxX / 2;
+//                        Timber.d("StickerView__ getWidth: %s, half %s", maxX, middleX);
+                int maxY = this.getHeight();
+                int middleY = maxY / 2;
+//                        Timber.d("StickerView__ getHeight: %s, half %s", maxY, middleY);
+
+                float stickerCenterX = StickerView.midValue(x1, x4);
+                float stickerCenterY = StickerView.midValue(y1, y4);
+
+                double sensitivity = 2;
+
+                float diffX = Math.abs(stickerCenterX - middleX);
+                float diffY = Math.abs(stickerCenterY - middleY);
+
+                if (diffX < sensitivity) {
+                    canvas.drawLine(middleX, 0, middleX, maxY, auxiliaryLinePaint);
+                }
+
+                if (diffY < sensitivity) {
+                    canvas.drawLine(0, middleY, maxX, middleY, auxiliaryLinePaint);
+                }
+
+                if (diffX < sensitivity || diffY < sensitivity) {
+                    if (onStickerOperationListener != null) {
+                        float minDiff = Math.min(diffX, diffY);
+                        if (minDiff < sensitivity / 3) {
+                            onStickerOperationListener.onStickerTouchedAuxiliaryLines(handlingSticker);
+                        }
+                    }
+                }
+
+
+            } else if (currentMode == ActionMode.NONE) {
+                Timber.d("currentMode == ActionMode_NONE");
+            }
+        }
+        canvas.restore();
+    }
+
     protected void drawStickers(Canvas canvas) {
         for (int i = 0; i < stickers.size(); i++) {
             Sticker sticker = stickers.get(i);
             if (sticker != null) {
                 if (sticker.isVisible()) {
                     sticker.draw(canvas);
+                    if (isCropActive && handlingSticker != sticker) {
+                        getStickerPoints(sticker, bitmapPoints);
+                        drawBorder(canvas, bitmapPoints, R.color.enabled, 4);
+                    }
                 }
             }
         }
 
         if (handlingSticker != null && !locked && (showBorder || showIcons)) {
-
             getStickerPoints(handlingSticker, bitmapPoints);
-
-            float x1 = bitmapPoints[0];
-            float y1 = bitmapPoints[1];
-            float x2 = bitmapPoints[2];
-            float y2 = bitmapPoints[3];
-            float x3 = bitmapPoints[4];
-            float y3 = bitmapPoints[5];
-            float x4 = bitmapPoints[6];
-            float y4 = bitmapPoints[7];
-
             if (handlingSticker != null && handlingSticker.isVisible()) {
-                canvas.save();
-                canvas.concat(canvasMatrix);
-//                if (showBorder) {
-//                    canvas.drawLine(x1, y1, x2, y2, borderPaint);
-//                    canvas.drawLine(x1, y1, x3, y3, borderPaint);
-//                    canvas.drawLine(x2, y2, x4, y4, borderPaint);
-//                    canvas.drawLine(x4, y4, x3, y3, borderPaint);
-//                }
-
-                float rotation = calculateRotation(x4, y4, x3, y3);
-                float roundedRotation = roundOff(rotation);
-
-                if (showAuxiliaryLines) {
-                    if (previousRotation != roundedRotation) {
-                        previousRotation = roundedRotation;
-                        float quotient = Math.abs(rotation) / 45;
-                        float diff = Math.round(quotient) - quotient;
-//                        Timber.d("rotation__: %s", rotation);
-//                        Timber.d("previousRotation: %s", previousRotation);
-//                        Timber.d("Math.abs(rotation) / 45: %s", quotient);
-//                        Timber.d("round: %s", Math.round(quotient));
-//                        Timber.d("diff: %s", diff);
-                        if (Math.abs(diff) < 0.0075) {
-                            auxiliaryLinePaint.setColor(dashColor);
-                            auxiliaryLinePaint.setPathEffect(dashPathEffect);
-                            float startX = midValue(x1, x3);
-                            float startY = midValue(y1, y3);
-                            float stopX = midValue(x2, x4);
-                            float stopY = midValue(y2, y4);
-                            float deltaX = stopX - startX;
-                            if (deltaX != 0) {
-                                float deltaY = stopY - startY;
-                                float slope = deltaY / deltaX;
-                                float yLeft = slope * (0 - startX) + startY;
-                                float yRight = slope * (this.getWidth() - startX) + startY;
-                                canvas.drawLine(0, yLeft, this.getWidth(), yRight, auxiliaryLinePaint);
-                            } else {
-                                canvas.drawLine(startX, 0, startX, this.getHeight(), auxiliaryLinePaint);
-                            }
-                        }
-                    }
-
-                    if (currentMode == ActionMode.DRAG) {
-
-                        auxiliaryLinePaint.setColor(accentColor);
-                        auxiliaryLinePaint.setPathEffect(null);
-
-                        int maxX = this.getWidth();
-                        int middleX = maxX / 2;
-//                        Timber.d("StickerView__ getWidth: %s, half %s", maxX, middleX);
-                        int maxY = this.getHeight();
-                        int middleY = maxY / 2;
-//                        Timber.d("StickerView__ getHeight: %s, half %s", maxY, middleY);
-
-                        float stickerCenterX = StickerView.midValue(x1, x4);
-                        float stickerCenterY = StickerView.midValue(y1, y4);
-
-                        double sensitivity = 2;
-
-                        float diffX = Math.abs(stickerCenterX - middleX);
-                        float diffY = Math.abs(stickerCenterY - middleY);
-
-                        if (diffX < sensitivity) {
-                            canvas.drawLine(middleX, 0, middleX, maxY, auxiliaryLinePaint);
-                        }
-
-                        if (diffY < sensitivity) {
-                            canvas.drawLine(0, middleY, maxX, middleY, auxiliaryLinePaint);
-                        }
-
-                        if (diffX < sensitivity || diffY < sensitivity) {
-                            if (onStickerOperationListener != null) {
-                                float minDiff = Math.min(diffX, diffY);
-                                if (minDiff < sensitivity / 3) {
-                                    onStickerOperationListener.onStickerTouchedAuxiliaryLines(handlingSticker);
-                                }
-                            }
-                        }
-
-
-                    } else if (currentMode == ActionMode.NONE) {
-                        Timber.d("currentMode == ActionMode_NONE");
-                    }
-                }
-                canvas.restore();
-
-                //draw icons
-                if (showIcons) {
-
-                    for (int i = 0; i < icons.size(); i++) {
-                        BitmapStickerIcon icon = icons.get(i);
-                        switch (icon.getPosition()) {
-                            case BitmapStickerIcon.LEFT_TOP:
-                                configIconMatrix(icon, x1, y1, rotation);
-                                break;
-
-                            case BitmapStickerIcon.RIGHT_TOP:
-                                configIconMatrix(icon, x2, y2, rotation);
-                                break;
-
-                            case BitmapStickerIcon.LEFT_BOTTOM:
-                                configIconMatrix(icon, x3, y3, rotation);
-                                break;
-
-                            case BitmapStickerIcon.RIGHT_BOTTOM:
-                                configIconMatrix(icon, x4, y4, rotation);
-                                break;
-                        }
-                        icon.draw(canvas, borderPaint);
-                    }
-                }
+                drawBorder(canvas, bitmapPoints, dashColor, 1);
             }
 
+            //draw icons
+            if (showIcons) {
+                float x1 = bitmapPoints[0];
+                float y1 = bitmapPoints[1];
+                float x2 = bitmapPoints[2];
+                float y2 = bitmapPoints[3];
+                float x3 = bitmapPoints[4];
+                float y3 = bitmapPoints[5];
+                float x4 = bitmapPoints[6];
+                float y4 = bitmapPoints[7];
+
+                float rotation = calculateRotation(x4, y4, x3, y3);
+
+                for (int i = 0; i < activeIcons.size(); i++) {
+                    BitmapStickerIcon icon = activeIcons.get(i);
+                    switch (icon.getPosition()) {
+                        case BitmapStickerIcon.LEFT_TOP:
+                            configIconMatrix(icon, x1, y1, rotation);
+                            break;
+
+                        case BitmapStickerIcon.RIGHT_TOP:
+                            configIconMatrix(icon, x2, y2, rotation);
+                            break;
+
+                        case BitmapStickerIcon.LEFT_BOTTOM:
+                            configIconMatrix(icon, x3, y3, rotation);
+                            break;
+
+                        case BitmapStickerIcon.RIGHT_BOTTOM:
+                            configIconMatrix(icon, x4, y4, rotation);
+                            break;
+                    }
+                    icon.draw(canvas, borderPaint);
+                }
+            }
         }
     }
 
@@ -409,7 +454,9 @@ public class StickerView extends FrameLayout {
         icon.setCanvasMatrix(canvasMatrix);
         Matrix a = new Matrix();
         canvasMatrix.invert(a);
-        icon.setIconRadius(a.mapRadius(BitmapStickerIcon.DEFAULT_ICON_RADIUS));
+        float radius = a.mapRadius(BitmapStickerIcon.DEFAULT_ICON_RADIUS);
+        icon.setIconRadius(radius);
+        icon.getMatrix().postScale(radius / BitmapStickerIcon.DEFAULT_ICON_RADIUS, radius / BitmapStickerIcon.DEFAULT_ICON_RADIUS, x, y);
     }
 
     @Override
@@ -732,9 +779,19 @@ public class StickerView extends FrameLayout {
             moveMatrix.set(stickerWorldMatrix);
             moveMatrix.postScale(newDistance / oldDistance, newDistance / oldDistance, midPoint.x,
                     midPoint.y);
-            moveMatrix.postRotate(newRotation - oldRotation, midPoint.x, midPoint.y);
+            if (isRotationEnabled()) {
+                moveMatrix.postRotate(newRotation - oldRotation, midPoint.x, midPoint.y);
+            }
             handlingSticker.setMatrix(moveMatrix);
         }
+    }
+
+    public void resetCurrentStickerCropping() {
+        resetStickerCropping(handlingSticker);
+    }
+
+    private void resetStickerCropping(Sticker sticker) {
+        sticker.setCroppedBounds(new RectF(sticker.getRealBounds()));
     }
 
     protected void constrainSticker(@NonNull Sticker sticker) {
@@ -762,9 +819,57 @@ public class StickerView extends FrameLayout {
         sticker.getMatrix().postTranslate(moveX, moveY);
     }
 
+    public void cropCurrentSticker(MotionEvent event, int gravity) {
+        cropSticker(handlingSticker, event, gravity);
+    }
+
+    protected void cropSticker(Sticker sticker, MotionEvent event, int gravity) {
+        if (sticker == null) {
+            return;
+        }
+
+        float dx = event.getX();
+        float dy = event.getY();
+
+        Matrix inv = new Matrix();
+        sticker.getCanvasMatrix().invert(inv);
+        Matrix inv2 = new Matrix();
+        sticker.getMatrix().invert(inv2);
+        float[] temp = {dx, dy};
+        inv.mapPoints(temp);
+        inv2.mapPoints(temp);
+        PointF pointOnSticker = new PointF(temp[0], temp[1]);
+        RectF cropped = new RectF(sticker.getCroppedBounds());
+        int px = (int)temp[0];
+        int py = (int)temp[1];
+
+        switch (gravity) {
+            case BitmapStickerIcon.LEFT_TOP:
+                cropped.left = Math.min(px, cropped.right);
+                cropped.top = Math.min(py, cropped.bottom);
+                break;
+            case BitmapStickerIcon.RIGHT_TOP:
+                cropped.right = Math.max(px, cropped.left);
+                cropped.top = Math.min(py, cropped.bottom);
+                break;
+            case BitmapStickerIcon.LEFT_BOTTOM:
+                cropped.left = Math.min(px, cropped.right);
+                cropped.bottom = Math.max(py, cropped.top);
+                break;
+            case BitmapStickerIcon.RIGHT_BOTTOM:
+                cropped.right = Math.max(px, cropped.left);
+                cropped.bottom = Math.max(py, cropped.top);
+                break;
+        }
+
+        sticker.setCroppedBounds(cropped);
+
+        Timber.d("%f %f %s", pointOnSticker.x, pointOnSticker.y, sticker.getRealBounds());
+    }
+
     @Nullable
     protected BitmapStickerIcon findCurrentIconTouched() {
-        for (BitmapStickerIcon icon : icons) {
+        for (BitmapStickerIcon icon : activeIcons) {
             PointF pos = icon.getMappedPos();
             float x = pos.x + icon.getIconRadius() - downX;
             float y = pos.y + icon.getIconRadius() - downY;
@@ -1177,6 +1282,21 @@ public class StickerView extends FrameLayout {
         return mustLockToPan;
     }
 
+    public boolean isCropActive() {
+        return isCropActive;
+    }
+
+    @NonNull
+    public StickerView setCropActive(boolean cropActive) {
+        if (cropActive) {
+            enableCrop();
+        } else {
+            disableCrop();
+        }
+        invalidate();
+        return this;
+    }
+
     @NonNull
     public StickerView setMustLockToPan(boolean mustLockToPan) {
         this.mustLockToPan = mustLockToPan;
@@ -1231,6 +1351,16 @@ public class StickerView extends FrameLayout {
         this.icons.clear();
         this.icons.addAll(icons);
         invalidate();
+    }
+
+    public void enableCrop() {
+        activeIcons = cropIcons;
+        isCropActive = true;
+    }
+
+    public void disableCrop() {
+        activeIcons = icons;
+        isCropActive = false;
     }
 
     public void removeFrame() { //remove icons and border from current sticker

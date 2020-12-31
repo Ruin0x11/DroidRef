@@ -1,37 +1,40 @@
 package xyz.ruin.droidref
 
 import android.Manifest
+import android.R.attr.bitmap
+import android.app.Activity
+import android.app.AlertDialog
+import android.content.DialogInterface
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
+import android.provider.MediaStore
 import android.text.Layout
-import android.util.Log
-import android.view.MenuItem
 import android.view.View
-import android.widget.ImageView
-import android.widget.Toast
+import android.widget.ImageButton
+import android.widget.ToggleButton
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.xiaopo.flying.sticker.*
 import com.xiaopo.flying.sticker.StickerView.OnStickerOperationListener
 import com.xiaopo.flying.sticker.extensions.withUnderline
 import timber.log.Timber
-import xyz.ruin.droidref.util.FileUtil
+import java.io.InputStream
+
 
 class MainActivity : AppCompatActivity() {
     private lateinit var stickerView: StickerView
     private lateinit var sticker: TextSticker
-    private lateinit var lockIcon: ImageView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         Timber.plant(Timber.DebugTree())
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         stickerView = findViewById(R.id.sticker_view)!!
-        val toolbar = findViewById<Toolbar>(R.id.toolbar)!!
-        lockIcon = findViewById(R.id.lockIcon)
 
         //currently you can config your own icons and icon event
         //the event you can custom
@@ -59,22 +62,22 @@ class MainActivity : AppCompatActivity() {
             BitmapStickerIcon.RIGHT_TOP
         )
         flipIcon.iconEvent = FlipHorizontallyEvent()
-        val heartIcon = BitmapStickerIcon(
-            ContextCompat.getDrawable(this, R.drawable.ic_favorite_white_24dp),
+        val resetCropIcon = BitmapStickerIcon(
+            ContextCompat.getDrawable(this, R.drawable.ic_refresh_black_18dp),
             BitmapStickerIcon.LEFT_BOTTOM
         )
-        heartIcon.iconEvent = HelloIconEvent()
-        stickerView.icons = listOf(deleteIcon, zoomIcon, flipIcon, heartIcon)
+        resetCropIcon.iconEvent = ResetCropIconEvent()
+        stickerView.icons = listOf(deleteIcon, zoomIcon, flipIcon, resetCropIcon)
 
         //default icon layout
         //stickerView.configDefaultIcons();
         stickerView.setBackgroundColor(Color.WHITE)
         stickerView.isLocked = false
-        stickerView.isConstrained = true
+        stickerView.isConstrained = false
 
         stickerView.onStickerOperationListener = MyStickerOperationListener(stickerView)
 
-        setupToolbar(toolbar)
+        setupButtons()
 
         sticker = TextSticker(this)
         sticker.drawable = ContextCompat.getDrawable(
@@ -99,41 +102,91 @@ class MainActivity : AppCompatActivity() {
         } else {
             loadSticker()
         }
-
-        updateGui()
     }
 
-    private fun setupToolbar(toolbar: Toolbar) {
-        toolbar.setTitle(R.string.app_name)
-        toolbar.inflateMenu(R.menu.menu_save)
-        toolbar.setOnMenuItemClickListener { item: MenuItem ->
-            if (item.itemId == R.id.item_save) {
-                val file = FileUtil.getNewFile(this@MainActivity, "Sticker")
-                if (file != null) {
-                    stickerView.save(file)
-                    Toast.makeText(
-                        this@MainActivity, "saved in " + file.absolutePath,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                } else {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "the file is null",
-                        Toast.LENGTH_SHORT
-                    ).show()
+    private fun setupButtons() {
+        val buttonOpen = findViewById<ImageButton>(R.id.buttonOpen)
+        val buttonSave = findViewById<ImageButton>(R.id.buttonSave)
+        val buttonNew = findViewById<ImageButton>(R.id.buttonNew)
+        buttonNew.setOnClickListener { _ ->
+            val dialogClickListener =
+                DialogInterface.OnClickListener { dialog, which ->
+                    when (which) {
+                        DialogInterface.BUTTON_POSITIVE -> {
+                            stickerView.removeAllStickers()
+                            stickerView.resetView()
+                        }
+                        DialogInterface.BUTTON_NEGATIVE -> {
+                        }
+                    }
+                }
+
+            val builder: AlertDialog.Builder = AlertDialog.Builder(this)
+            builder.setMessage("Are you sure you want to create a new board?").setPositiveButton("Yes", dialogClickListener)
+                .setNegativeButton("No", dialogClickListener).show()
+        }
+
+        val buttonAdd = findViewById<ImageButton>(R.id.buttonAdd)
+        buttonAdd.setOnClickListener { _ ->
+            addSticker()
+        }
+
+        val buttonLock = findViewById<ToggleButton>(R.id.buttonLock)
+        buttonLock.setOnCheckedChangeListener { _, isToggled ->
+            stickerView.setLocked(isToggled)
+        }
+
+        val buttonReset = findViewById<ImageButton>(R.id.buttonReset)
+        buttonReset.setOnClickListener { _ -> stickerView.resetView() }
+
+        val buttonCrop = findViewById<ToggleButton>(R.id.buttonCrop)
+        buttonCrop.setOnCheckedChangeListener { _, isToggled ->
+            stickerView.setCropActive(isToggled)
+        }
+    }
+
+    private fun addSticker() {
+        val intent = Intent()
+        intent.type = "image/*"
+        intent.action = Intent.ACTION_GET_CONTENT
+        startActivityForResult(Intent.createChooser(intent, "Select Image"), INTENT_PICK_IMAGE)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (resultCode == Activity.RESULT_OK) {
+            when (requestCode) {
+                INTENT_PICK_IMAGE -> {
+                    val selectedImage = data!!.data!!
+                    val filePathColumn = arrayOf(MediaStore.Images.Media.DATA)
+
+                    val cursor = contentResolver.query(
+                        selectedImage,
+                        filePathColumn, null, null, null
+                    )!!
+                    cursor.moveToFirst()
+
+                    val columnIndex = cursor.getColumnIndex(filePathColumn[0])
+                    val picturePath = cursor.getString(columnIndex)
+                    cursor.close()
+
+                    val bitmap = BitmapFactory.decodeFile(picturePath)
+                    val drawable = BitmapDrawable(resources, bitmap)
+                    stickerView.addSticker(DrawableSticker(drawable))
                 }
             }
-            false
         }
     }
 
     private fun loadSticker() {
         val drawable =
-            ContextCompat.getDrawable(this, R.drawable.haizewang_215)
+            ContextCompat.getDrawable(this, R.drawable.h250280)
         val drawable1 =
-            ContextCompat.getDrawable(this, R.drawable.haizewang_23)
+            ContextCompat.getDrawable(this, R.drawable.h2037984)
+        val drawable2 =
+            ContextCompat.getDrawable(this, R.drawable.h2037349)
         stickerView.addSticker(DrawableSticker(drawable))
         stickerView.addSticker(DrawableSticker(drawable1), Sticker.Position.BOTTOM or Sticker.Position.RIGHT)
+        stickerView.addSticker(DrawableSticker(drawable2), Sticker.Position.BOTTOM or Sticker.Position.LEFT)
         val bubble =
             ContextCompat.getDrawable(this, R.drawable.bubble)
         val textSticker = TextSticker(applicationContext)
@@ -158,62 +211,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun testReplace(view: View?) {
-        if (stickerView.replace(sticker)) {
-            Toast.makeText(
-                this@MainActivity,
-                "Replace Sticker successfully!",
-                Toast.LENGTH_SHORT
-            ).show()
-        } else {
-            Toast.makeText(
-                this@MainActivity,
-                "Replace Sticker failed!",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-
-    fun updateGui() {
-        if (stickerView.isLocked) {
-            lockIcon.visibility = View.VISIBLE
-        } else {
-            lockIcon.visibility = View.GONE
-        }
-    }
-
-    fun testLock(view: View) {
-        stickerView.isLocked = !stickerView.isLocked
-        updateGui()
-    }
-
-    fun testRemove(view: View) {
-        if (stickerView.removeCurrentSticker()) {
-            Toast.makeText(
-                this@MainActivity,
-                "Remove current Sticker successfully!",
-                Toast.LENGTH_SHORT
-            )
-                .show()
-        } else {
-            Toast.makeText(
-                this@MainActivity,
-                "Remove current Sticker failed!",
-                Toast.LENGTH_SHORT
-            )
-                .show()
-        }
-    }
-
-    fun testRemoveAll(view: View) {
-        stickerView.removeAllStickers()
-    }
-
-    fun reset(view: View) {
-        stickerView.removeAllStickers()
-        loadSticker()
-    }
-
     fun testAdd(view: View) {
         val sticker = TextSticker(this)
         sticker.text = "Hello, world!\n Selfix"
@@ -224,8 +221,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
-        private val TAG = MainActivity::class.java.simpleName
         const val PERM_RQST_CODE = 110
+
+        const val INTENT_PICK_IMAGE = 1
     }
 
     class MyStickerOperationListener(private val stickerView: StickerView) : OnStickerOperationListener {

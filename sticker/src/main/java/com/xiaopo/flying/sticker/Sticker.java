@@ -1,9 +1,6 @@
 package com.xiaopo.flying.sticker;
 
-import android.graphics.Canvas;
-import android.graphics.Matrix;
-import android.graphics.PointF;
-import android.graphics.RectF;
+import android.graphics.*;
 import android.graphics.drawable.Drawable;
 
 import androidx.annotation.IntDef;
@@ -42,6 +39,8 @@ public abstract class Sticker {
     private Matrix finalMatrix = new Matrix();
     private boolean isFlippedHorizontally;
     private boolean isFlippedVertically;
+    protected RectF croppedBounds;
+    protected Rect realBounds;
 
     private boolean visible = true;
 
@@ -303,5 +302,20 @@ public abstract class Sticker {
 
     public void setVisible(boolean visible) {
         this.visible = visible;
+    }
+
+    public Rect getRealBounds() {
+        return realBounds;
+    }
+
+    public RectF getCroppedBounds() {
+        return croppedBounds;
+    }
+
+    public void setCroppedBounds(RectF cropped) {
+        croppedBounds.left = Math.min(Math.max(realBounds.left, cropped.left), croppedBounds.right - 1);
+        croppedBounds.top = Math.min(Math.max(realBounds.top, cropped.top), croppedBounds.bottom - 1);
+        croppedBounds.right = Math.max(Math.min(realBounds.right, cropped.right), 1);
+        croppedBounds.bottom = Math.max(Math.min(realBounds.bottom, cropped.bottom), 1);
     }
 }

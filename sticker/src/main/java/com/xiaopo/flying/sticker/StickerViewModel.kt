@@ -16,7 +16,7 @@ import com.xiaopo.flying.sticker.StickerView.OnStickerAreaTouchListener
 import timber.log.Timber
 import kotlin.math.pow
 
-open class StickerViewModel(private val stickerOperationListener: StickerView.OnStickerOperationListener) :
+open class StickerViewModel :
     ViewModel() {
     var isLocked: MutableLiveData<Boolean> = MutableLiveData(false)
     var mustLockToPan: MutableLiveData<Boolean> = MutableLiveData(false)
@@ -25,14 +25,18 @@ open class StickerViewModel(private val stickerOperationListener: StickerView.On
     var constrained: MutableLiveData<Boolean> = MutableLiveData(false)
     var bringToFrontCurrentSticker = MutableLiveData(true)
 
-    var canvasMatrix: MutableLiveData<Matrix> = MutableLiveData(Matrix())
+    var canvasMatrix: CustomMutableLiveData<ObservableMatrix> = CustomMutableLiveData(ObservableMatrix())
 
     var stickers: MutableLiveData<ArrayList<Sticker>> = MutableLiveData(ArrayList())
     var icons: MutableLiveData<ArrayList<BitmapStickerIcon>> = MutableLiveData(ArrayList())
     var activeIcons: MutableLiveData<ArrayList<BitmapStickerIcon>> = MutableLiveData(ArrayList(4))
     var handlingSticker: MutableLiveData<Sticker?> = MutableLiveData(null)
 
+    var isFirstRun: Boolean = true
+
     private val onStickerAreaTouchListener: OnStickerAreaTouchListener? = null
+
+    lateinit var stickerOperationListener: StickerView.OnStickerOperationListener
 
     private val stickerWorldMatrix = Matrix()
     private val stickerScreenMatrix = Matrix()
@@ -92,13 +96,14 @@ open class StickerViewModel(private val stickerOperationListener: StickerView.On
     }
 
     fun addSticker(sticker: Sticker, position: Int) {
-        sticker.setCanvasMatrix(canvasMatrix.value)
+        sticker.setCanvasMatrix(canvasMatrix.value!!.getMatrix())
         sticker.recalcFinalMatrix()
+        stickers.value!!.add(sticker)
         stickerOperationListener.onStickerAdded(sticker, position)
     }
 
     fun resetView() {
-        canvasMatrix.value!!.set(Matrix())
+        canvasMatrix.value!!.setMatrix(Matrix())
         updateCanvasMatrix()
         stickerOperationListener.onInvalidateView()
     }
@@ -106,7 +111,7 @@ open class StickerViewModel(private val stickerOperationListener: StickerView.On
     private fun updateCanvasMatrix() {
         for (i in stickers.value!!.indices) {
             val sticker: Sticker = stickers.value!![i]
-            sticker.setCanvasMatrix(canvasMatrix.value)
+            sticker.setCanvasMatrix(canvasMatrix.value!!.getMatrix())
         }
     }
 
@@ -185,7 +190,7 @@ open class StickerViewModel(private val stickerOperationListener: StickerView.On
                 oldDistance = StickerMath.calculateDistance(event)
                 oldRotation = StickerMath.calculateRotation(event)
                 midPoint = calculateMidPoint(event)
-                stickerWorldMatrix.set(canvasMatrix.value)
+                stickerWorldMatrix.set(canvasMatrix.value!!.getMatrix())
                 currentMode.value = ActionMode.CANVAS_ZOOM_WITH_TWO_FINGER
             }
             MotionEvent.ACTION_MOVE -> {
@@ -227,7 +232,7 @@ open class StickerViewModel(private val stickerOperationListener: StickerView.On
         midPoint = calculateMidPoint()
         oldDistance = StickerMath.calculateDistance(midPoint.x, midPoint.y, downX, downY)
         oldRotation = StickerMath.calculateRotation(midPoint.x, midPoint.y, downX, downY)
-        stickerWorldMatrix.set(canvasMatrix.value)
+        stickerWorldMatrix.set(canvasMatrix.value!!.getMatrix())
         return true
     }
 
@@ -243,7 +248,7 @@ open class StickerViewModel(private val stickerOperationListener: StickerView.On
             ActionMode.CANVAS_DRAG -> {
                 moveMatrix.set(stickerWorldMatrix)
                 moveMatrix.postTranslate(event.x - downX, event.y - downY)
-                canvasMatrix.value!!.set(moveMatrix)
+                canvasMatrix.value!!.setMatrix(moveMatrix)
                 updateCanvasMatrix()
             }
             ActionMode.CANVAS_ZOOM_WITH_TWO_FINGER -> {
@@ -255,7 +260,7 @@ open class StickerViewModel(private val stickerOperationListener: StickerView.On
                     midPoint.y
                 )
                 //moveMatrix.postRotate(newRotation - oldRotation, midPoint.x, midPoint.y);
-                canvasMatrix.value!!.set(moveMatrix)
+                canvasMatrix.value!!.setMatrix(moveMatrix)
                 updateCanvasMatrix()
             }
         }
@@ -383,7 +388,7 @@ open class StickerViewModel(private val stickerOperationListener: StickerView.On
                 stickerOperationListener.onStickerMoved(handlingSticker.value!!)
             }
             ActionMode.ZOOM_WITH_TWO_FINGER -> if (handlingSticker.value != null) {
-                val newDistance = StickerMath.calculateDistanceScaled(event, canvasMatrix.value!!)
+                val newDistance = StickerMath.calculateDistanceScaled(event, canvasMatrix.value!!.getMatrix())
                 val newRotation = StickerMath.calculateRotation(event)
                 moveMatrix.set(stickerWorldMatrix)
                 moveMatrix.postScale(

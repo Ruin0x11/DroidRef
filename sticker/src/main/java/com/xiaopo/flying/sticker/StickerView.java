@@ -42,8 +42,6 @@ public class StickerView extends FrameLayout {
     protected @interface Flip {
     }
 
-
-
     public static final int FLIP_HORIZONTALLY = 1;
     public static final int FLIP_VERTICALLY = 1 << 1;
 
@@ -59,6 +57,7 @@ public class StickerView extends FrameLayout {
     private final RectF stickerRect = new RectF();
 
     private final Matrix sizeMatrix = new Matrix();
+
     private final Matrix canvasMatrix = new Matrix();
 
     private final float[] bitmapPoints = new float[8];
@@ -308,54 +307,6 @@ public class StickerView extends FrameLayout {
     @Override
     protected void onSizeChanged(int w, int h, int oldW, int oldH) {
         super.onSizeChanged(w, h, oldW, oldH);
-        for (int i = 0; i < stickers.size(); i++) {
-            Sticker sticker = stickers.get(i);
-            if (sticker != null) {
-                transformSticker(sticker);
-            }
-        }
-    }
-
-    /**
-     * Sticker's drawable will be too bigger or smaller
-     * This method is to transform it to fit
-     * step 1：let the center of the sticker image is coincident with the center of the View.
-     * step 2：Calculate the zoom and zoom
-     **/
-    protected void transformSticker(@Nullable Sticker sticker) {
-        if (sticker == null) {
-            Timber.e("transformSticker: the bitmapSticker is null or the bitmapSticker bitmap is null");
-            return;
-        }
-
-        sizeMatrix.reset();
-
-        float width = getWidth();
-        float height = getHeight();
-        float stickerWidth = sticker.getWidth();
-        float stickerHeight = sticker.getHeight();
-        //step 1
-        float offsetX = (width - stickerWidth) / 2;
-        float offsetY = (height - stickerHeight) / 2;
-
-        sizeMatrix.postTranslate(offsetX, offsetY);
-
-        //step 2
-        float scaleFactor;
-        if (width < height) {
-            scaleFactor = width / stickerWidth;
-        } else {
-            scaleFactor = height / stickerHeight;
-        }
-
-        sizeMatrix.postScale(scaleFactor / 2f, scaleFactor / 2f, width / 2f, height / 2f);
-
-        sticker.getMatrix().reset();
-        sticker.setMatrix(sizeMatrix);
-        sticker.getCanvasMatrix().reset();
-        sticker.setCanvasMatrix(canvasMatrix);
-
-        invalidate();
     }
 
     public void showCurrentSticker() {
@@ -613,4 +564,12 @@ public class StickerView extends FrameLayout {
     public void setActiveIcons(List<BitmapStickerIcon> activeIcons) {
         this.activeIcons = activeIcons;
     }
+
+    public Matrix getCanvasMatrix() {
+        return canvasMatrix;
+    }
+    public void setCanvasMatrix(Matrix matrix) {
+        canvasMatrix.set(matrix);
+    }
+
 }

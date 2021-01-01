@@ -19,6 +19,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.databinding.DataBindingUtil
+import androidx.lifecycle.ViewModelProvider
 import com.xiaopo.flying.sticker.*
 import com.xiaopo.flying.sticker.StickerView.OnStickerOperationListener
 import timber.log.Timber
@@ -36,7 +37,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
-        stickerViewModel = StickerViewModel(object : OnStickerOperationListener {
+
+        val stickerOperationListener = object : OnStickerOperationListener {
             override fun onStickerAdded(sticker: Sticker, direction: Int) {
                 binding.stickerView.layoutSticker(sticker, direction)
                 binding.stickerView.invalidate()
@@ -77,14 +79,21 @@ class MainActivity : AppCompatActivity() {
             override fun onInvalidateView() {
                 binding.stickerView.invalidate()
             }
-        })
+        }
+
+        stickerViewModel = ViewModelProvider(this).get(StickerViewModel::class.java)
+        stickerViewModel.stickerOperationListener = stickerOperationListener
         binding.viewModel = stickerViewModel
         binding.executePendingBindings()
         binding.lifecycleOwner = this
 
         setupIcons()
         setupButtons()
-        loadSticker()
+
+        if (stickerViewModel.isFirstRun) {
+            stickerViewModel.isFirstRun = false
+            loadSticker()
+        }
     }
 
     private fun setupIcons() {

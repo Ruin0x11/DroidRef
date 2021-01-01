@@ -20,7 +20,7 @@ public class CropIconEvent implements StickerIconEvent {
 
     @Override
     public void onActionMove(StickerView stickerView, MotionEvent event) {
-        stickerView.cropCurrentSticker(event, gravity);
+//        stickerView.cropCurrentSticker(event, gravity);
     }
 
     @Override

@@ -14,15 +14,11 @@ public class ZoomIconEvent implements StickerIconEvent {
 
     @Override
     public void onActionMove(StickerView stickerView, MotionEvent event) {
-        stickerView.zoomAndRotateCurrentSticker(event);
+        //stickerView.zoomAndRotateCurrentSticker(event);
     }
 
     @Override
     public void onActionUp(StickerView stickerView, MotionEvent event) {
-        if (stickerView.getOnStickerOperationListener() != null) {
-            stickerView.getOnStickerOperationListener()
-                    .onStickerZoomFinished(stickerView.getCurrentSticker());
-        }
     }
 
 }

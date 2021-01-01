@@ -5,7 +5,6 @@ import android.graphics.*
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import com.google.gson.*
-import timber.log.Timber
 import java.io.*
 import java.lang.reflect.Type
 import java.security.MessageDigest
@@ -120,9 +119,6 @@ class StickerViewSerializer {
 
         val zipStream = ZipInputStream(BufferedInputStream(stream))
 
-        view.removeAllStickers()
-        view.resetView()
-
         val bitmapArrays: MutableMap<String, ByteArray> = HashMap()
         var metadata: Metadata? = null
 
@@ -154,7 +150,7 @@ class StickerViewSerializer {
             sticker.setMatrix(entry.matrix)
             sticker.isFlippedHorizontally = entry.flipHorizontal
             sticker.isFlippedVertically = entry.flipVertical
-            view.addStickerRaw(sticker)
+            view.setHandlingSticker(sticker)
         }
 
         zipStream.close()

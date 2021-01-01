@@ -18,69 +18,108 @@ import android.widget.ToggleButton
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.net.toFile
+import androidx.databinding.DataBindingUtil
 import com.xiaopo.flying.sticker.*
 import com.xiaopo.flying.sticker.StickerView.OnStickerOperationListener
 import timber.log.Timber
+import xyz.ruin.droidref.databinding.ActivityMainBinding
 import java.io.File
 import java.io.IOException
-import java.io.InputStream
-
 
 class MainActivity : AppCompatActivity() {
-    private lateinit var stickerView: StickerView
-//    private lateinit var sticker: TextSticker
+    private lateinit var stickerViewModel: StickerViewModel
+    private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
         Timber.plant(Timber.DebugTree())
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        stickerView = findViewById(R.id.sticker_view)!!
 
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
+        stickerViewModel = StickerViewModel(object : OnStickerOperationListener {
+            override fun onStickerAdded(sticker: Sticker, direction: Int) {
+                binding.stickerView.layoutSticker(sticker, direction)
+                binding.stickerView.invalidate()
+            }
+
+            override fun onStickerClicked(sticker: Sticker) {
+                binding.stickerView.invalidate()
+            }
+
+            override fun onStickerDeleted(sticker: Sticker) {
+                binding.stickerView.invalidate()
+            }
+
+            override fun onStickerDragFinished(sticker: Sticker) {
+                binding.stickerView.invalidate()
+            }
+
+            override fun onStickerTouchedDown(sticker: Sticker) {
+                binding.stickerView.invalidate()
+            }
+
+            override fun onStickerZoomFinished(sticker: Sticker) {
+                binding.stickerView.invalidate()
+            }
+
+            override fun onStickerFlipped(sticker: Sticker) {
+                binding.stickerView.invalidate()
+            }
+
+            override fun onStickerDoubleTapped(sticker: Sticker) {
+                binding.stickerView.invalidate()
+            }
+
+            override fun onStickerMoved(sticker: Sticker) {
+                binding.stickerView.invalidate()
+            }
+
+            override fun onInvalidateView() {
+                binding.stickerView.invalidate()
+            }
+        })
+        binding.viewModel = stickerViewModel
+        binding.executePendingBindings()
+        binding.lifecycleOwner = this
+
+        setupIcons()
+        setupButtons()
+        loadSticker()
+    }
+
+    private fun setupIcons() {
         //currently you can config your own icons and icon event
         //the event you can custom
         val deleteIcon = BitmapStickerIcon(
-            ContextCompat.getDrawable(
-                this,
-                com.xiaopo.flying.sticker.R.drawable.sticker_ic_close_white_18dp
-            ),
-            BitmapStickerIcon.LEFT_TOP
+                ContextCompat.getDrawable(
+                        this,
+                        com.xiaopo.flying.sticker.R.drawable.sticker_ic_close_white_18dp
+                ),
+                BitmapStickerIcon.LEFT_TOP
         )
         deleteIcon.iconEvent = DeleteIconEvent()
         val zoomIcon = BitmapStickerIcon(
-            ContextCompat.getDrawable(
-                this,
-                com.xiaopo.flying.sticker.R.drawable.sticker_ic_scale_white_18dp
-            ),
-            BitmapStickerIcon.RIGHT_BOTTOM
+                ContextCompat.getDrawable(
+                        this,
+                        com.xiaopo.flying.sticker.R.drawable.sticker_ic_scale_white_18dp
+                ),
+                BitmapStickerIcon.RIGHT_BOTTOM
         )
         zoomIcon.iconEvent = ZoomIconEvent()
         val flipIcon = BitmapStickerIcon(
-            ContextCompat.getDrawable(
-                this,
-                com.xiaopo.flying.sticker.R.drawable.sticker_ic_flip_white_18dp
-            ),
-            BitmapStickerIcon.RIGHT_TOP
+                ContextCompat.getDrawable(
+                        this,
+                        com.xiaopo.flying.sticker.R.drawable.sticker_ic_flip_white_18dp
+                ),
+                BitmapStickerIcon.RIGHT_TOP
         )
         flipIcon.iconEvent = FlipHorizontallyEvent()
         val resetCropIcon = BitmapStickerIcon(
-            ContextCompat.getDrawable(this, R.drawable.ic_refresh_black_18dp),
-            BitmapStickerIcon.LEFT_BOTTOM
+                ContextCompat.getDrawable(this, R.drawable.ic_refresh_black_18dp),
+                BitmapStickerIcon.LEFT_BOTTOM
         )
         resetCropIcon.iconEvent = ResetCropIconEvent()
-        stickerView.icons = listOf(deleteIcon, zoomIcon, flipIcon, resetCropIcon)
-
-        //default icon layout
-        //stickerView.configDefaultIcons();
-        stickerView.setBackgroundColor(Color.WHITE)
-        stickerView.isLocked = false
-        stickerView.isConstrained = false
-
-        stickerView.onStickerOperationListener = MyStickerOperationListener(stickerView)
-
-        setupButtons()
-
-        loadSticker()
+        stickerViewModel.icons.value = arrayListOf(deleteIcon, zoomIcon, flipIcon, resetCropIcon)
     }
 
     private fun save() {
@@ -99,13 +138,13 @@ class MainActivity : AppCompatActivity() {
         val file = File(getExternalFilesDir(null), "test.zip")
 
         try {
-            StickerViewSerializer().serialize(stickerView, file)
-            Toast.makeText(stickerView.context, "Saved to $file", Toast.LENGTH_SHORT).show()
+//            StickerViewSerializer().serialize(stickerView, file)
+            Toast.makeText(this, "Saved to $file", Toast.LENGTH_SHORT).show()
         } catch (e: IOException) {
             // Unable to create file, likely because external storage is
             // not currently mounted.
             Log.w("ExternalStorage", "Error writing $file", e)
-            Toast.makeText(stickerView.context, "Error writing $file", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Error writing $file", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -114,9 +153,9 @@ class MainActivity : AppCompatActivity() {
             != PackageManager.PERMISSION_GRANTED
         ) {
             ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
-                PERM_RQST_CODE
+                    this,
+                    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                    PERM_RQST_CODE
             )
         }
 
@@ -129,16 +168,16 @@ class MainActivity : AppCompatActivity() {
     private fun doLoad(file: Uri) {
         try {
             val stream = contentResolver.openInputStream(file)!!
-            if (!StickerViewSerializer().deserialize(stickerView, stream, resources)) {
-                Toast.makeText(stickerView.context, "Invalid file", Toast.LENGTH_LONG).show()
-                return
-            }
-            Toast.makeText(stickerView.context, "Loaded from $file", Toast.LENGTH_SHORT).show()
+//            if (!StickerViewSerializer().deserialize(stickerView, stream, resources)) {
+//                Toast.makeText(stickerView.context, "Invalid file", Toast.LENGTH_LONG).show()
+//                return
+//            }
+            Toast.makeText(this, "Loaded from $file", Toast.LENGTH_SHORT).show()
         } catch (e: IOException) {
             // Unable to create file, likely because external storage is
             // not currently mounted.
             Log.w("ExternalStorage", "Error writing $file", e)
-            Toast.makeText(stickerView.context, "Error reading $file", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Error reading $file", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -158,11 +197,10 @@ class MainActivity : AppCompatActivity() {
                     val imageStream = contentResolver.openInputStream(selectedImage)
                     val bitmap = BitmapFactory.decodeStream(imageStream)
                     if (bitmap == null) {
-                        Toast.makeText(stickerView.context, "Could not decode image", Toast.LENGTH_SHORT).show()
-                    }
-                    else {
+                        Toast.makeText(this, "Could not decode image", Toast.LENGTH_SHORT).show()
+                    } else {
                         val drawable = BitmapDrawable(resources, bitmap)
-                        stickerView.addSticker(DrawableSticker(drawable))
+                        stickerViewModel.addSticker(DrawableSticker(drawable))
                     }
                 }
                 INTENT_PICK_SAVED_FILE -> {
@@ -172,6 +210,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+        super.onActivityResult(requestCode, resultCode, data)
     }
 
     private fun setupButtons() {
@@ -184,11 +223,11 @@ class MainActivity : AppCompatActivity() {
         val buttonNew = findViewById<ImageButton>(R.id.buttonNew)
         buttonNew.setOnClickListener { _ ->
             val dialogClickListener =
-                DialogInterface.OnClickListener { dialog, which ->
+                DialogInterface.OnClickListener { _, which ->
                     when (which) {
                         DialogInterface.BUTTON_POSITIVE -> {
-                            stickerView.removeAllStickers()
-                            stickerView.resetView()
+                            stickerViewModel.removeAllStickers()
+                            stickerViewModel.resetView()
                         }
                         DialogInterface.BUTTON_NEGATIVE -> {
                         }
@@ -207,25 +246,25 @@ class MainActivity : AppCompatActivity() {
 
         val buttonLock = findViewById<ToggleButton>(R.id.buttonLock)
         buttonLock.setOnCheckedChangeListener { _, isToggled ->
-            stickerView.setLocked(isToggled)
+            stickerViewModel.isLocked.value = isToggled
         }
 
         val buttonReset = findViewById<ImageButton>(R.id.buttonReset)
-        buttonReset.setOnClickListener { _ -> stickerView.resetView() }
+        buttonReset.setOnClickListener { _ -> stickerViewModel.resetView() }
 
         val buttonCrop = findViewById<ToggleButton>(R.id.buttonCrop)
         buttonCrop.setOnCheckedChangeListener { _, isToggled ->
-            stickerView.setCropActive(isToggled)
+            stickerViewModel.isCropActive.value = isToggled
         }
 
         val buttonResetZoom = findViewById<ImageButton>(R.id.buttonResetZoom)
         buttonResetZoom.setOnClickListener { _ ->
-            stickerView.resetCurrentStickerZoom()
+            stickerViewModel.resetCurrentStickerZoom()
         }
 
         val buttonResetCrop = findViewById<ImageButton>(R.id.buttonResetCrop)
         buttonResetCrop.setOnClickListener { _ ->
-            stickerView.resetCurrentStickerCropping()
+            stickerViewModel.resetCurrentStickerCropping()
         }
     }
 
@@ -236,9 +275,9 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.getDrawable(this, R.drawable.h2037984)
         val drawable2 =
             ContextCompat.getDrawable(this, R.drawable.h2037349)
-        stickerView.addSticker(DrawableSticker(drawable), Sticker.Position.TOP or Sticker.Position.LEFT)
-        stickerView.addSticker(DrawableSticker(drawable1), Sticker.Position.BOTTOM or Sticker.Position.RIGHT)
-        stickerView.addSticker(DrawableSticker(drawable2), Sticker.Position.BOTTOM or Sticker.Position.LEFT)
+        stickerViewModel.addSticker(DrawableSticker(drawable), Sticker.Position.TOP or Sticker.Position.LEFT)
+        stickerViewModel.addSticker(DrawableSticker(drawable1), Sticker.Position.BOTTOM or Sticker.Position.RIGHT)
+        stickerViewModel.addSticker(DrawableSticker(drawable2), Sticker.Position.BOTTOM or Sticker.Position.LEFT)
         val bubble =
             ContextCompat.getDrawable(this, R.drawable.bubble)
 //        val textSticker = TextSticker(applicationContext)
@@ -254,8 +293,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onRequestPermissionsResult(
-        requestCode: Int, permissions: Array<String>,
-        grantResults: IntArray
+            requestCode: Int, permissions: Array<String>,
+            grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERM_RQST_CODE && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -268,53 +307,5 @@ class MainActivity : AppCompatActivity() {
 
         const val INTENT_PICK_IMAGE = 1
         const val INTENT_PICK_SAVED_FILE = 2
-    }
-
-    class MyStickerOperationListener(private val stickerView: StickerView) : OnStickerOperationListener {
-        override fun onStickerAdded(sticker: Sticker) {
-//            Timber.d("onStickerAdded")
-        }
-
-        override fun onStickerClicked(sticker: Sticker) {
-            //stickerView.removeAllSticker();
-            if (sticker is TextSticker) {
-                sticker.setTextColor(Color.RED)
-                stickerView.replace(sticker)
-                stickerView.invalidate()
-            }
-//            Timber.d("onStickerClicked")
-        }
-
-        override fun onStickerDeleted(sticker: Sticker) {
-//            Timber.d("onStickerDeleted")
-        }
-
-        override fun onStickerDragFinished(sticker: Sticker) {
-//            Timber.d("onStickerDragFinished")
-        }
-
-        override fun onStickerTouchedDown(sticker: Sticker) {
-//            Timber.d("onStickerTouchedDown")
-        }
-
-        override fun onStickerZoomFinished(sticker: Sticker) {
-//            Timber.d("onStickerZoomFinished")
-        }
-
-        override fun onStickerFlipped(sticker: Sticker) {
-//            Timber.d("onStickerFlipped")
-        }
-
-        override fun onStickerDoubleTapped(sticker: Sticker) {
-//            Timber.d("onDoubleTapped: double tap will be with two click")
-        }
-
-        override fun onStickerMoved(sticker: Sticker) {
-//            Timber.d("onStickerMoved")
-        }
-
-        override fun onStickerTouchedAuxiliaryLines(sticker: Sticker) {
-//            Timber.d("onStickerTouchedAuxiliaryLines")
-        }
     }
 }

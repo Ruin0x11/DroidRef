@@ -25,6 +25,6 @@ public class DeleteIconEvent implements StickerIconEvent {
 
     @Override
     public void onActionLongPress(StickerView stickerView, MotionEvent event) {
-        stickerView.removeCurrentSticker();
+//        stickerView.removeCurrentSticker();
     }
 }

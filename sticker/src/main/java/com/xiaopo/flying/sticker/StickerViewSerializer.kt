@@ -100,16 +100,17 @@ class StickerViewSerializer {
     ) {
         viewModel.removeAllStickers()
         board.stickers.flatMapTo(viewModel.stickers.value!!) { metadata ->
-            metadata.instances.map { entry ->
-                val bitmap = BitmapFactory.decodeByteArray(metadata.bitmap, 0, metadata.bitmap.size)
-                val drawable = BitmapDrawable(resources, bitmap)
-                val sticker = DrawableSticker(drawable, metadata.bitmap)
-                sticker.realBounds = entry.bounds
-                sticker.croppedBounds = entry.cropBounds
-                sticker.setMatrix(entry.matrix)
-                sticker.isFlippedHorizontally = entry.flipHorizontal
-                sticker.isFlippedVertically = entry.flipVertical
-                sticker
+            metadata.instances.mapNotNull { entry ->
+                BitmapFactory.decodeByteArray(metadata.bitmap, 0, metadata.bitmap.size)?.let { bitmap ->
+                    val drawable = BitmapDrawable(resources, bitmap)
+                    val sticker = DrawableSticker(drawable, metadata.bitmap)
+                    sticker.realBounds = entry.bounds
+                    sticker.croppedBounds = entry.cropBounds
+                    sticker.setMatrix(entry.matrix)
+                    sticker.isFlippedHorizontally = entry.flipHorizontal
+                    sticker.isFlippedVertically = entry.flipVertical
+                    sticker
+                }
             }
         }
 

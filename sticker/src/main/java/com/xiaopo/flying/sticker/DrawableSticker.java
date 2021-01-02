@@ -1,5 +1,6 @@
 package com.xiaopo.flying.sticker;
 
+import android.content.res.Resources;
 import android.graphics.*;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
@@ -33,6 +34,39 @@ public class DrawableSticker extends Sticker {
     public DrawableSticker(DrawableSticker other) {
         super(other);
         this.drawable = other.drawable.getConstantState().newDrawable().mutate();
+        cacheBitmap();
+    }
+
+    public boolean isCropped() {
+        return (croppedBounds.left != realBounds.left
+                || croppedBounds.top != realBounds.top
+                || croppedBounds.right != realBounds.right
+                || croppedBounds.bottom != realBounds.bottom);
+    }
+
+    public void cropDestructively(Resources resources) {
+        if (!isCropped()) {
+            return;
+        }
+
+        Bitmap bitmap = StickerViewSerializer.Companion.drawableToBitmap(this.drawable);
+        Bitmap cropped = Bitmap.createBitmap(bitmap,
+                (int)croppedBounds.left,
+                (int)croppedBounds.top,
+                (int)(croppedBounds.right - croppedBounds.left),
+                (int)(croppedBounds.bottom - croppedBounds.top));
+
+        float dx = (croppedBounds.left - (float)realBounds.left);
+        float dy = (croppedBounds.top - (float)realBounds.top);
+        float[] a = {dx, dy};
+        this.getMatrix().mapVectors(a);
+        this.getMatrix().postTranslate(a[0], a[1]);
+
+        this.drawable = new BitmapDrawable(resources, cropped);
+        this.realBounds = new Rect(0, 0, getWidth(), getHeight());
+        this.croppedBounds = new RectF(this.realBounds);
+        this.recalcFinalMatrix();
+        cacheBitmap();
     }
 
     private void cacheBitmap() {

@@ -205,20 +205,21 @@ open class StickerViewModel :
                 currentMode.value = ActionMode.CANVAS_ZOOM_WITH_TWO_FINGER
             }
             MotionEvent.ACTION_MOVE -> {
-                if (event.getPointerId(0) != pointerId) {
-                    calculateDown(event)
-                    pointerId = event.getPointerId(0)
+                for (i in 0 until event.pointerCount) {
+                    if (event.getPointerId(0) != pointerId) {
+                        calculateDown(event)
+                        pointerId = event.getPointerId(0)
+                        break
+                    }
                 }
                 handleMoveActionCanvas(event)
             }
             MotionEvent.ACTION_UP -> {
-                var i = 0
-                while (i < event.pointerCount) {
+                for (i in 0 until event.pointerCount) {
                     if (event.getPointerId(i) == pointerId) {
                         onTouchUpCanvas(event)
                         break
                     }
-                    i++
                 }
             }
             MotionEvent.ACTION_POINTER_UP -> if (currentMode.value == ActionMode.CANVAS_ZOOM_WITH_TWO_FINGER) {

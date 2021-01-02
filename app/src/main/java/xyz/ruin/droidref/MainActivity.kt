@@ -150,10 +150,6 @@ class MainActivity : AppCompatActivity() {
             context.binding.activityMain.progressBarHolder.visibility = View.VISIBLE
         }
 
-        override fun onPostExecute(aVoid: Void?) {
-            super.onPostExecute(aVoid)
-        }
-
         override fun doInBackground(vararg params: Void?): Void? {
             try {
                 val fuel = FuelManager()
@@ -363,6 +359,14 @@ class MainActivity : AppCompatActivity() {
         stickerViewModel.currentFileName = null
     }
 
+    private fun cropAll() {
+        stickerViewModel.stickers.value!!.forEach {
+            (it as? DrawableSticker)?.cropDestructively(resources)
+        }
+        binding.stickerView.invalidate()
+        Toast.makeText(this, "Cropped all images.", Toast.LENGTH_SHORT).show()
+    }
+
     private fun addSticker() {
         val intent = Intent()
         intent.type = "image/*"
@@ -413,62 +417,53 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupButtons() {
-        val buttonOpen = findViewById<ImageButton>(R.id.buttonOpen)
-        buttonOpen.setOnClickListener { load() }
+        binding.buttonOpen.setOnClickListener { load() }
 
-        val buttonSave = findViewById<ImageButton>(R.id.buttonSave)
-        buttonSave.setOnClickListener { save() }
+        binding.buttonSave.setOnClickListener { save() }
 
-        val buttonSaveAs = findViewById<ImageButton>(R.id.buttonSaveAs)
-        buttonSaveAs.setOnClickListener { saveAs() }
+        binding.buttonSaveAs.setOnClickListener { saveAs() }
 
-        val buttonNew = findViewById<ImageButton>(R.id.buttonNew)
-        buttonNew.setOnClickListener {
-            val dialogClickListener =
-                DialogInterface.OnClickListener { _, which ->
-                    when (which) {
-                        DialogInterface.BUTTON_POSITIVE -> {
-                            newBoard()
-                        }
-                        DialogInterface.BUTTON_NEGATIVE -> {
-                        }
-                    }
-                }
-
-            val builder: AlertDialog.Builder = AlertDialog.Builder(this)
-            builder.setMessage("Are you sure you want to create a new board?")
-                .setPositiveButton("Yes", dialogClickListener)
-                .setNegativeButton("No", dialogClickListener).show()
+        binding.buttonNew.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setTitle("Confirm")
+                .setMessage("Are you sure you want to create a new board?")
+                .setPositiveButton( "Yes") { _, _ -> newBoard() }
+                .setNegativeButton("No", null)
+                .show()
         }
 
-        val buttonAdd = findViewById<ImageButton>(R.id.buttonAdd)
-        buttonAdd.setOnClickListener {
+        binding.buttonCropAll.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setTitle("Confirm")
+                .setMessage("Are you sure you want to crop all images? This will permanently modify the images to match their cropped areas, but it can save  space and improve performance.")
+                .setPositiveButton( "Yes") { _, _ -> cropAll() }
+                .setNegativeButton("No", null)
+                .show()
+        }
+
+        binding.buttonAdd.setOnClickListener {
             addSticker()
         }
 
-        val buttonReset = findViewById<ImageButton>(R.id.buttonReset)
-        buttonReset.setOnClickListener { stickerViewModel.resetView() }
+        binding.buttonReset.setOnClickListener { stickerViewModel.resetView() }
 
-        val buttonDuplicate = findViewById<ImageButton>(R.id.buttonDuplicate)
-        buttonDuplicate.setOnClickListener { stickerViewModel.duplicateCurrentSticker() }
+        binding.buttonDuplicate.setOnClickListener { stickerViewModel.duplicateCurrentSticker() }
 
-        val buttonLock = findViewById<ToggleButton>(R.id.buttonLock)
-        buttonLock.setOnCheckedChangeListener { _, isToggled ->
+        binding.buttonLock.setOnCheckedChangeListener { _, isToggled ->
             stickerViewModel.isLocked.value = isToggled
         }
 
-        val buttonCrop = findViewById<ToggleButton>(R.id.buttonCrop)
-        buttonCrop.setOnCheckedChangeListener { _, isToggled ->
+        binding.buttonCrop.setOnCheckedChangeListener { _, isToggled ->
             stickerViewModel.isCropActive.value = isToggled
         }
 
-        val buttonResetZoom = findViewById<ImageButton>(R.id.buttonResetZoom)
-        buttonResetZoom.setOnClickListener {
+        binding.buttonResetZoom.setOnClickListener {
             stickerViewModel.resetCurrentStickerZoom()
         }
 
-        val buttonResetCrop = findViewById<ImageButton>(R.id.buttonResetCrop)
-        buttonResetCrop.setOnClickListener {
+        binding.buttonResetCrop.setOnClickListener {
             stickerViewModel.resetCurrentStickerCropping()
         }
     }

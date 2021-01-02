@@ -9,13 +9,13 @@ import timber.log.Timber;
  */
 
 public interface StickerIconEvent {
-    void onActionDown(StickerView stickerView, MotionEvent event);
+    void onActionDown(StickerView stickerView, StickerViewModel viewModel, MotionEvent event);
 
-    void onActionMove(StickerView stickerView, MotionEvent event);
+    void onActionMove(StickerView stickerView, StickerViewModel viewModel, MotionEvent event);
 
-    void onActionUp(StickerView stickerView, MotionEvent event);
+    void onActionUp(StickerView stickerView, StickerViewModel viewModel, MotionEvent event);
 
-    default void onActionLongPress(StickerView stickerView, MotionEvent event) {
+    default void onActionLongPress(StickerView stickerView, StickerViewModel viewModel, MotionEvent event) {
 //        Timber.e("LongPress_detected on icon");
     }
 

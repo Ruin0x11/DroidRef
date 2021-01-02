@@ -29,8 +29,14 @@ open class StickerViewModel :
 
     var stickers: MutableLiveData<ArrayList<Sticker>> = MutableLiveData(ArrayList())
     var icons: MutableLiveData<ArrayList<BitmapStickerIcon>> = MutableLiveData(ArrayList())
-    var activeIcons: MutableLiveData<ArrayList<BitmapStickerIcon>> = MutableLiveData(ArrayList(4))
+    var activeIcons: MutableLiveData<List<BitmapStickerIcon>> = MutableLiveData(ArrayList(4))
     var handlingSticker: MutableLiveData<Sticker?> = MutableLiveData(null)
+
+    var gestureListener: MutableLiveData<GestureListener> = MutableLiveData()
+
+    init {
+        gestureListener.value = GestureListener(this)
+    }
 
     var isFirstRun: Boolean = true
 
@@ -72,7 +78,7 @@ open class StickerViewModel :
         ActionMode.CANVAS_ZOOM_WITH_TWO_FINGER
     )
     @kotlin.annotation.Retention(AnnotationRetention.SOURCE)
-    protected annotation class ActionMode {
+    annotation class ActionMode {
         companion object {
             const val NONE = 0
             const val DRAG = 1
@@ -89,7 +95,7 @@ open class StickerViewModel :
     var currentIcon: MutableLiveData<BitmapStickerIcon?> = MutableLiveData(null)
 
     @SuppressLint("ClickableViewAccessibility")
-    val onTouchListener = View.OnTouchListener { v, event -> onTouchEvent(v, event) }
+    val onTouchListener = View.OnTouchListener { v, event -> onTouchEvent(v as StickerView, event) }
 
     fun addSticker(sticker: Sticker) {
         addSticker(sticker, Sticker.Position.CENTER)
@@ -176,11 +182,12 @@ open class StickerViewModel :
         }
     }
 
-    private fun handleCanvasMotion(view: View, event: MotionEvent): Boolean {
+    private fun handleCanvasMotion(view: StickerView, event: MotionEvent): Boolean {
         handlingSticker.value = null
         currentIcon.value = null
         when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> //                Timber.d("CANVAS MotionEvent.ACTION_DOWN event__: %s", event.toString());
+            MotionEvent.ACTION_DOWN ->
+                // Timber.d("CANVAS MotionEvent.ACTION_DOWN event__: %s", event.toString());
                 if (pointerId == -1) {
                     if (!onTouchDownCanvas(event)) {
                         return false
@@ -271,7 +278,7 @@ open class StickerViewModel :
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    fun onTouchEvent(view: View, event: MotionEvent): Boolean {
+    fun onTouchEvent(view: StickerView, event: MotionEvent): Boolean {
         if (isLocked.value == true || isMovingCanvas()) {
             return handleCanvasMotion(view, event)
         }
@@ -312,18 +319,23 @@ open class StickerViewModel :
     /**
      * @param event MotionEvent received from [)][.onTouchEvent]
      */
-    protected fun onTouchDown(view: View, event: MotionEvent): Boolean {
+    protected fun onTouchDown(view: StickerView, event: MotionEvent): Boolean {
         currentMode.value = ActionMode.DRAG
         calculateDown(event)
         midPoint = StickerMath.calculateMidPoint(handlingSticker.value)
         oldDistance = StickerMath.calculateDistance(midPoint.x, midPoint.y, downX, downY)
         oldRotation = StickerMath.calculateRotation(midPoint.x, midPoint.y, downX, downY)
         currentIcon.value = findCurrentIconTouched()
-        // gestureDetector.onTouchEvent(event)
+
+        // HACK if application logic is really meant to be handled in the ViewModel, how do you
+        // communicate from the View to the ViewModel? There can't be a GestureDetector in the
+        // ViewModel because it retains the activity's context.
+        (view as StickerView).detectIconGesture(event)
+
         if (currentIcon.value != null) {
             currentMode.value = ActionMode.ICON
-            currentIcon.value!!.onActionDown(view as StickerView, event)
-            //            Timber.d("current_icon: %s", currentIcon.getDrawableName());
+            currentIcon.value!!.onActionDown(view, this, event)
+            // Timber.d("current_icon: %s", currentIcon.getDrawableName());
         } else {
             handlingSticker.value = findHandlingSticker()
         }
@@ -340,13 +352,13 @@ open class StickerViewModel :
         return currentIcon.value != null || handlingSticker.value != null
     }
 
-    protected fun onTouchUp(view: View, event: MotionEvent) {
+    protected fun onTouchUp(view: StickerView, event: MotionEvent) {
         val touchSlop = ViewConfiguration.get(view.context).scaledTouchSlop
 
         val currentTime = SystemClock.uptimeMillis()
         if (currentMode.value == ActionMode.ICON && currentIcon.value != null && handlingSticker.value != null) {
-            currentIcon.value!!.onActionUp(view as StickerView, event)
-            //            Timber.d("current_icon: %s", currentIcon.getDrawableName());
+            currentIcon.value!!.onActionUp(view, this, event)
+            // Timber.d("current_icon: %s", currentIcon.getDrawableName());
         }
         if (currentMode.value == ActionMode.DRAG && Math.abs(event.x - downX) < touchSlop && Math.abs(
                 event.y - downY
@@ -373,7 +385,7 @@ open class StickerViewModel :
         return PointF(vec[0], vec[1])
     }
 
-    protected fun handleMoveAction(view: View, event: MotionEvent) {
+    protected fun handleMoveAction(view: StickerView, event: MotionEvent) {
         when (currentMode.value) {
             ActionMode.NONE, ActionMode.CLICK -> {
             }
@@ -401,7 +413,7 @@ open class StickerViewModel :
                 handlingSticker.value!!.setMatrix(moveMatrix)
             }
             ActionMode.ICON -> if (handlingSticker.value != null && currentIcon.value != null) {
-                currentIcon.value!!.onActionMove(view as StickerView, event)
+                currentIcon.value!!.onActionMove(view, this, event)
             }
         }
     }
@@ -453,7 +465,7 @@ open class StickerViewModel :
         }
     }
 
-    protected fun constrainSticker(view: View, sticker: Sticker) {
+    protected fun constrainSticker(view: StickerView, sticker: Sticker) {
         var moveX = 0f
         var moveY = 0f
         val width: Int = view.getWidth()

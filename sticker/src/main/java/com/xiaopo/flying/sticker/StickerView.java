@@ -6,7 +6,6 @@ import android.graphics.*;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
-import android.view.ViewConfiguration;
 import android.widget.FrameLayout;
 
 import androidx.annotation.ColorInt;
@@ -14,14 +13,21 @@ import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.view.ViewCompat;
+import androidx.databinding.ObservableArrayList;
+import androidx.databinding.ObservableField;
+
+import com.xiaopo.flying.sticker.iconEvents.CropIconEvent;
+import com.xiaopo.flying.sticker.iconEvents.DeleteIconEvent;
+import com.xiaopo.flying.sticker.iconEvents.FlipHorizontallyEvent;
+import com.xiaopo.flying.sticker.iconEvents.ZoomIconEvent;
+
+import org.jetbrains.annotations.NotNull;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-import timber.log.Timber;
 
 /**
  * Sticker View
@@ -32,14 +38,14 @@ public class StickerView extends FrameLayout {
 
 //    private static final String TAG = StickerView.class.getSimpleName();
 
-    final GestureDetector gestureDetector;
+    private GestureDetector gestureDetector;
 
     private final boolean showIcons;
     private final boolean showBorder;
 
     @IntDef(flag = true, value = {FLIP_HORIZONTALLY, FLIP_VERTICALLY})
     @Retention(RetentionPolicy.SOURCE)
-    protected @interface Flip {
+    public @interface Flip {
     }
 
     public static final int FLIP_HORIZONTALLY = 1;
@@ -48,8 +54,7 @@ public class StickerView extends FrameLayout {
     private List<Sticker> stickers = new ArrayList<>();
     private final List<BitmapStickerIcon> icons = new ArrayList<>(4);
     private final List<BitmapStickerIcon> cropIcons = new ArrayList<>(4);
-
-    private List<BitmapStickerIcon> activeIcons = new ArrayList<>(4);
+    private ObservableField<List<BitmapStickerIcon>> activeIcons = new ObservableField<>(new ArrayList<>(4));
 
     private final Paint borderPaint = new Paint();
     private final Paint auxiliaryLinePaint = new Paint();
@@ -70,7 +75,6 @@ public class StickerView extends FrameLayout {
     private boolean rotationEnabled;
     private boolean mustLockToPan;
 
-    private final boolean withStyleIcon;
     private boolean isCropActive;
 
     @ColorInt
@@ -99,7 +103,6 @@ public class StickerView extends FrameLayout {
             a = context.obtainStyledAttributes(attrs, R.styleable.StickerView);
             showIcons = a.getBoolean(R.styleable.StickerView_showIcons, false);
             showBorder = a.getBoolean(R.styleable.StickerView_showBorder, false);
-            withStyleIcon = a.getBoolean(R.styleable.StickerView_withStyleIcon, false);
             accentColor = a.getColor(R.styleable.StickerView_accentColor, Color.GRAY);
             dashColor = a.getColor(R.styleable.StickerView_dashColor, Color.GREEN);
 
@@ -120,19 +123,7 @@ public class StickerView extends FrameLayout {
             }
         }
 
-        gestureDetector = new GestureDetector(context, new GestureDetector.SimpleOnGestureListener() {
-            public void onLongPress(MotionEvent event) {
-//                Timber.e("LongPress_detected");
-//                setHapticFeedbackEnabled(true);
-                if (currentMode == StickerViewModel.ActionMode.ICON) {
-                    if (currentIcon != null) {
-                        currentIcon.onActionLongPress(StickerView.this, event);
-                    }
-                }
-            }
-        });
-
-        activeIcons = icons;
+        updateIcons();
     }
 
     public void configDefaultIcons() {
@@ -144,9 +135,14 @@ public class StickerView extends FrameLayout {
                 getContext(), R.drawable.ic_scale, BitmapStickerIcon.RIGHT_BOTTOM);
         zoomIcon.setIconEvent(new ZoomIconEvent());
 
+        BitmapStickerIcon flipIcon = new BitmapStickerIcon(
+                getContext(), R.drawable.ic_flip, BitmapStickerIcon.RIGHT_TOP);
+        flipIcon.setIconEvent(new FlipHorizontallyEvent());
+
         icons.clear();
         icons.add(deleteIcon);
         icons.add(zoomIcon);
+        icons.add(flipIcon);
 
         BitmapStickerIcon cropLeftTop = new BitmapStickerIcon(getContext(), R.drawable.ic_scale, BitmapStickerIcon.LEFT_TOP);
         cropLeftTop.setIconEvent(new CropIconEvent(BitmapStickerIcon.LEFT_TOP));
@@ -165,18 +161,6 @@ public class StickerView extends FrameLayout {
         cropIcons.add(cropRightTop);
         cropIcons.add(cropLeftBottom);
         cropIcons.add(cropRightBottom);
-
-        if (withStyleIcon) {
-//            BitmapStickerIcon styleIcon = new BitmapStickerIcon(
-//                    getContext(), R.drawable.ic_underline, BitmapStickerIcon.LEFT_BOTTOM);
-//            styleIcon.setIconEvent(new StyleIconEvent());
-//            icons.add(styleIcon);
-        } else {
-            BitmapStickerIcon flipIcon = new BitmapStickerIcon(
-                    getContext(), R.drawable.ic_flip, BitmapStickerIcon.RIGHT_TOP);
-            flipIcon.setIconEvent(new FlipHorizontallyEvent());
-            icons.add(flipIcon);
-        }
     }
 
     @Override
@@ -255,8 +239,8 @@ public class StickerView extends FrameLayout {
 
                 float rotation = StickerMath.calculateRotation(x4, y4, x3, y3);
 
-                for (int i = 0; i < activeIcons.size(); i++) {
-                    BitmapStickerIcon icon = activeIcons.get(i);
+                for (int i = 0; i < activeIcons.get().size(); i++) {
+                    BitmapStickerIcon icon = activeIcons.get().get(i);
                     switch (icon.getPosition()) {
                         case BitmapStickerIcon.LEFT_TOP:
                             configIconMatrix(icon, x1, y1, rotation);
@@ -307,6 +291,10 @@ public class StickerView extends FrameLayout {
     @Override
     protected void onSizeChanged(int w, int h, int oldW, int oldH) {
         super.onSizeChanged(w, h, oldW, oldH);
+    }
+
+    public void detectIconGesture(@NotNull MotionEvent event) {
+        gestureDetector.onTouchEvent(event);
     }
 
     public void showCurrentSticker() {
@@ -450,11 +438,8 @@ public class StickerView extends FrameLayout {
 
     @NonNull
     public StickerView setCropActive(boolean cropActive) {
-        if (cropActive) {
-            enableCrop();
-        } else {
-            disableCrop();
-        }
+        this.isCropActive = cropActive;
+        updateIcons();
         invalidate();
         return this;
     }
@@ -490,19 +475,17 @@ public class StickerView extends FrameLayout {
     public void setIcons(@NonNull List<BitmapStickerIcon> icons) {
         this.icons.clear();
         this.icons.addAll(icons);
+        updateIcons();
         invalidate();
     }
 
-    public void enableCrop() {
-        activeIcons = cropIcons;
-        isCropActive = true;
+    private void updateIcons() {
+        if (isCropActive) {
+            setActiveIcons(cropIcons);
+        } else {
+            setActiveIcons(icons);
+        }
     }
-
-    public void disableCrop() {
-        activeIcons = icons;
-        isCropActive = false;
-    }
-
     public interface OnStickerOperationListener {
         void onStickerAdded(@NonNull Sticker sticker, int position);
 
@@ -557,14 +540,6 @@ public class StickerView extends FrameLayout {
         this.stickers = stickers;
     }
 
-    public List<BitmapStickerIcon> getActiveIcons() {
-        return activeIcons;
-    }
-
-    public void setActiveIcons(List<BitmapStickerIcon> activeIcons) {
-        this.activeIcons = activeIcons;
-    }
-
     public Matrix getCanvasMatrix() {
         return canvasMatrix;
     }
@@ -572,4 +547,19 @@ public class StickerView extends FrameLayout {
         canvasMatrix.set(matrix);
     }
 
+    public void setGestureDetector(GestureListener gestureListener) {
+        // HACK can't figure out how to get around this, some of the icon events require both a
+        // Context and the ViewModel logic to work, but the ViewModel can't be put in the View and
+        // the ViewModel can't hold references to views or contexts.
+        gestureListener.setStickerView(this);
+        gestureDetector = new GestureDetector(getContext(), gestureListener);
+    }
+
+    public ObservableField<List<BitmapStickerIcon>> getActiveIcons() {
+        return activeIcons;
+    }
+
+    public void setActiveIcons(List<BitmapStickerIcon> activeIcons) {
+        this.activeIcons.set(activeIcons);
+    }
 }

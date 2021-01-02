@@ -101,30 +101,30 @@ public class BitmapStickerIcon extends DrawableSticker implements StickerIconEve
     }
 
     @Override
-    public void onActionDown(StickerView stickerView, MotionEvent event) {
+    public void onActionDown(StickerView stickerView, StickerViewModel viewModel, MotionEvent event) {
         if (iconEvent != null) {
-            iconEvent.onActionDown(stickerView, event);
+            iconEvent.onActionDown(stickerView, viewModel, event);
         }
     }
 
     @Override
-    public void onActionMove(StickerView stickerView, MotionEvent event) {
+    public void onActionMove(StickerView stickerView, StickerViewModel viewModel, MotionEvent event) {
         if (iconEvent != null) {
-            iconEvent.onActionMove(stickerView, event);
+            iconEvent.onActionMove(stickerView, viewModel, event);
         }
     }
 
     @Override
-    public void onActionUp(StickerView stickerView, MotionEvent event) {
+    public void onActionUp(StickerView stickerView, StickerViewModel viewModel, MotionEvent event) {
         if (iconEvent != null) {
-            iconEvent.onActionUp(stickerView, event);
+            iconEvent.onActionUp(stickerView, viewModel, event);
         }
     }
 
     @Override
-    public void onActionLongPress(StickerView stickerView, MotionEvent event) {
+    public void onActionLongPress(StickerView stickerView, StickerViewModel viewModel, MotionEvent event) {
         if (iconEvent != null) {
-            iconEvent.onActionLongPress(stickerView, event);
+            iconEvent.onActionLongPress(stickerView, viewModel, event);
         }
     }
 

@@ -1,4 +1,6 @@
-package com.xiaopo.flying.sticker;
+package com.xiaopo.flying.sticker.iconEvents;
+
+import com.xiaopo.flying.sticker.StickerView;
 
 /**
  * @author wupanjie

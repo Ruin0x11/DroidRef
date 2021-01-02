@@ -28,6 +28,7 @@
                 app:showAuxiliaryLines="false"
                 app:showBorder="true"
                 app:showIcons="true"
+
                 app:isLocked="@{viewModel.isLocked}"
                 app:mustLockToPan="@{viewModel.mustLockToPan}"
                 app:rotationEnabled="@{viewModel.rotationEnabled}"
@@ -40,7 +41,8 @@
                 app:onTouchListener="@{viewModel.onTouchListener}"
                 app:currentMode="@{viewModel.currentMode}"
                 app:currentIcon="@{viewModel.currentIcon}"
-                app:activeIcons="@{viewModel.activeIcons}"
+                app:gestureDetector="@{viewModel.gestureListener}"
+                app:activeIcons="@={viewModel.activeIcons}"
                 >
 
                 <View

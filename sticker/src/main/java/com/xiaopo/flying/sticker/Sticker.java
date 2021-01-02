@@ -8,6 +8,8 @@ import androidx.annotation.IntRange;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -348,6 +350,21 @@ public abstract class Sticker {
         Matrix tempMatrix = new Matrix();
         tempMatrix.setRotate(-getCurrentAngle());
         getBoundPoints(boundPoints);
+        getMappedPoints(mappedBounds, boundPoints);
+        tempMatrix.mapPoints(unrotatedWrapperCorner, mappedBounds);
+        tempMatrix.mapPoints(unrotatedPoint, point);
+        StickerUtils.trapToRect(trappedRect, unrotatedWrapperCorner);
+        return trappedRect.contains(unrotatedPoint[0], unrotatedPoint[1]);
+    }
+
+    public boolean containsCropped(float x, float y) {
+        return contains(new float[]{x, y});
+    }
+
+    public boolean containsCropped(@NonNull float[] point) {
+        Matrix tempMatrix = new Matrix();
+        tempMatrix.setRotate(-getCurrentAngle());
+        getCroppedBoundPoints(boundPoints);
         getMappedPoints(mappedBounds, boundPoints);
         tempMatrix.mapPoints(unrotatedWrapperCorner, mappedBounds);
         tempMatrix.mapPoints(unrotatedPoint, point);

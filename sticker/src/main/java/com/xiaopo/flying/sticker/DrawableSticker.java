@@ -11,7 +11,6 @@ import androidx.annotation.NonNull;
  * @author wupanjie
  */
 public class DrawableSticker extends Sticker {
-
     private Drawable drawable;
 
     public DrawableSticker(Drawable drawable) {

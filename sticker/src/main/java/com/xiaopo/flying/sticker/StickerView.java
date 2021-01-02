@@ -144,16 +144,16 @@ public class StickerView extends FrameLayout {
         icons.add(zoomIcon);
         icons.add(flipIcon);
 
-        BitmapStickerIcon cropLeftTop = new BitmapStickerIcon(getContext(), R.drawable.ic_scale, BitmapStickerIcon.LEFT_TOP);
+        BitmapStickerIcon cropLeftTop = new BitmapStickerIcon(getContext(), R.drawable.scale_1, BitmapStickerIcon.LEFT_TOP);
         cropLeftTop.setIconEvent(new CropIconEvent(BitmapStickerIcon.LEFT_TOP));
 
-        BitmapStickerIcon cropRightTop = new BitmapStickerIcon(getContext(), R.drawable.ic_scale, BitmapStickerIcon.RIGHT_TOP);
+        BitmapStickerIcon cropRightTop = new BitmapStickerIcon(getContext(), R.drawable.scale_2, BitmapStickerIcon.RIGHT_TOP);
         cropRightTop.setIconEvent(new CropIconEvent(BitmapStickerIcon.RIGHT_TOP));
 
-        BitmapStickerIcon cropLeftBottom = new BitmapStickerIcon(getContext(), R.drawable.ic_scale, BitmapStickerIcon.LEFT_BOTTOM);
+        BitmapStickerIcon cropLeftBottom = new BitmapStickerIcon(getContext(), R.drawable.scale_2, BitmapStickerIcon.LEFT_BOTTOM);
         cropLeftBottom.setIconEvent(new CropIconEvent(BitmapStickerIcon.LEFT_BOTTOM));
 
-        BitmapStickerIcon cropRightBottom = new BitmapStickerIcon(getContext(), R.drawable.ic_scale, BitmapStickerIcon.RIGHT_BOTTOM);
+        BitmapStickerIcon cropRightBottom = new BitmapStickerIcon(getContext(), R.drawable.scale_1, BitmapStickerIcon.RIGHT_BOTTOM);
         cropRightBottom.setIconEvent(new CropIconEvent(BitmapStickerIcon.RIGHT_BOTTOM));
 
         cropIcons.clear();
@@ -324,13 +324,18 @@ public class StickerView extends FrameLayout {
         setStickerPosition(sticker, position);
 
         float scaleFactor, widthScaleFactor, heightScaleFactor;
+        float[] worldSize = {getWidth(), getHeight()};
+        Matrix a = new Matrix();
+        canvasMatrix.invert(a);
+        a.mapVectors(worldSize);
+        float worldWidth = worldSize[0];
+        float worldHeight = worldSize[1];
 
-        widthScaleFactor = (float) getWidth() / sticker.getDrawable().getIntrinsicWidth();
-        heightScaleFactor = (float) getHeight() / sticker.getDrawable().getIntrinsicHeight();
+        widthScaleFactor = worldWidth / sticker.getDrawable().getIntrinsicWidth();
+        heightScaleFactor = worldHeight / sticker.getDrawable().getIntrinsicHeight();
         scaleFactor = Math.min(widthScaleFactor, heightScaleFactor);
 
-//        sticker.getMatrix()
-//                .postScale(scaleFactor / 2, scaleFactor / 2, getWidth() / 2f, getHeight() / 2f);
+        sticker.getMatrix().postScale(scaleFactor / 2, scaleFactor / 2, getWidth() / 2f, getHeight() / 2f);
         setHandlingSticker(sticker);
     }
 

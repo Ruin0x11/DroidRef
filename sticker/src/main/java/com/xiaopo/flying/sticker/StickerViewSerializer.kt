@@ -4,57 +4,77 @@ import android.content.res.Resources
 import android.graphics.*
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
-import com.google.gson.*
+import org.msgpack.core.MessagePack
+import org.msgpack.core.MessagePacker
+import org.msgpack.core.MessageUnpacker
 import java.io.*
-import java.lang.reflect.Type
 import java.security.MessageDigest
-import java.util.zip.ZipEntry
-import java.util.zip.ZipFile
-import java.util.zip.ZipInputStream
-import java.util.zip.ZipOutputStream
 
+fun MessagePacker.packMatrix(matrix: Matrix) {
+    val temp = FloatArray(9)
+    matrix.getValues(temp)
+    temp.forEach { this.packFloat(it) }
+}
+fun MessageUnpacker.unpackMatrix(): Matrix {
+    val temp = FloatArray(9)
+    (0..8).forEach{ temp[it] = this.unpackFloat() }
+    val matrix = Matrix()
+    matrix.setValues(temp)
+    return matrix
+}
+
+fun MessagePacker.packRect(rect: Rect) {
+    this.packInt(rect.left)
+    this.packInt(rect.top)
+    this.packInt(rect.right)
+    this.packInt(rect.bottom)
+}
+fun MessageUnpacker.unpackRect(): Rect {
+    val left = this.unpackInt()
+    val top = this.unpackInt()
+    val right = this.unpackInt()
+    val bottom = this.unpackInt()
+    return Rect(left, top, right, bottom)
+}
+
+fun MessagePacker.packRectF(rectF: RectF) {
+    this.packFloat(rectF.left)
+    this.packFloat(rectF.top)
+    this.packFloat(rectF.right)
+    this.packFloat(rectF.bottom)
+}
+fun MessageUnpacker.unpackRectF(): RectF {
+    val left = this.unpackFloat()
+    val top = this.unpackFloat()
+    val right = this.unpackFloat()
+    val bottom = this.unpackFloat()
+    return RectF(left, top, right, bottom)
+}
 
 class StickerViewSerializer {
-    private final val METADATA_FILE = "droidref_metadata.json"
-
-    private class MatrixSerializer : JsonSerializer<Matrix> {
-        override fun serialize(src: Matrix, typeOfSrc: Type, context: JsonSerializationContext): JsonElement {
-            val floats = FloatArray(9)
-            src.getValues(floats)
-            var array = JsonArray(9)
-            for (i in 0 until 9) {
-                array.add(JsonPrimitive(floats[i]))
-            }
-            return array
-        }
-    }
-
-    private class MatrixDeserializer : JsonDeserializer<Matrix> {
-        @Throws(JsonParseException::class)
-        override fun deserialize(json: JsonElement, typeOfT: Type, context: JsonDeserializationContext): Matrix {
-            val floats = FloatArray(9)
-            for (i in 0 until 9) {
-                floats[i] = json.asJsonArray[i].asFloat
-            }
-            val mat = Matrix()
-            mat.setValues(floats)
-            return mat
-        }
-    }
-
-    private fun getGson(): Gson =
-        GsonBuilder().registerTypeAdapter(Matrix::class.java, MatrixSerializer()).registerTypeAdapter(Matrix::class.java, MatrixDeserializer()).create()
+    data class Entry(
+        val bounds: Rect,
+        val matrix: Matrix,
+        val cropBounds: RectF,
+        val flipHorizontal: Boolean,
+        val flipVertical: Boolean
+    )
+    data class StickerMetadata(val bitmap: ByteArray, val instances: MutableList<Entry>)
+    data class Board(val date: Long, val stickers: List<StickerMetadata>)
 
     private fun drawableToBitmap(drawable: Drawable): Bitmap {
-        var bitmap: Bitmap? = null
         if (drawable is BitmapDrawable) {
             val bitmapDrawable = drawable
             if (bitmapDrawable.bitmap != null) {
                 return bitmapDrawable.bitmap
             }
         }
-        bitmap = if (drawable.intrinsicWidth <= 0 || drawable.intrinsicHeight <= 0) {
-            Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888) // Single color bitmap will be created of 1x1 pixel
+        var bitmap: Bitmap = if (drawable.intrinsicWidth <= 0 || drawable.intrinsicHeight <= 0) {
+            Bitmap.createBitmap(
+                1,
+                1,
+                Bitmap.Config.ARGB_8888
+            ) // Single color bitmap will be created of 1x1 pixel
         } else {
             Bitmap.createBitmap(
                 drawable.intrinsicWidth,
@@ -68,93 +88,104 @@ class StickerViewSerializer {
         return bitmap
     }
 
-    fun sha256(bytes: ByteArray): String {
+    private fun sha256(bytes: ByteArray): String {
         val md = MessageDigest.getInstance("SHA-256")
         val digest = md.digest(bytes)
         return digest.fold("", { str, it -> str + "%02x".format(it) })
     }
 
-    data class Entry(val sha256: String, val bounds: Rect, val matrix: Matrix, val cropBounds: RectF, val flipHorizontal: Boolean, val flipVertical: Boolean)
-    data class Metadata(val date: Long, val entries: MutableMap<String, Entry>)
+    private fun serializeViewModel(viewModel: StickerViewModel): Board {
+        val dedup: MutableMap<String, StickerMetadata> = mutableMapOf()
 
-    fun serialize(view: StickerView, file: File) {
-        val zipStream = ZipOutputStream(BufferedOutputStream(FileOutputStream(file)))
-
-        val entries: MutableMap<String, Entry> = HashMap()
-
-        view.stickers.forEach {
+        viewModel.stickers.value!!.forEach {
             val drawableSticker = it as DrawableSticker
             val bitmap = drawableToBitmap(drawableSticker.drawable)
             val stream = ByteArrayOutputStream()
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
             val byteArray = stream.toByteArray()
-            val sha = sha256(byteArray)
             val entry = Entry(
-                sha,
                 drawableSticker.getRealBounds(),
                 drawableSticker.matrix,
                 drawableSticker.croppedBounds,
                 drawableSticker.isFlippedHorizontally,
                 drawableSticker.isFlippedVertically
             )
-            val filename = "$sha.png"
-            entries[filename] = entry
-            zipStream.putNextEntry(ZipEntry(filename))
-            zipStream.write(byteArray)
+            val sha = sha256(byteArray)
+            dedup.getOrPut(sha, { StickerMetadata(byteArray, mutableListOf()) }).instances.add(entry)
         }
 
-        zipStream.putNextEntry(ZipEntry(METADATA_FILE))
-        zipStream.write(getGson().toJson(Metadata(System.currentTimeMillis(), entries)).toByteArray(Charsets.UTF_8))
-        zipStream.close()
+        return Board(System.currentTimeMillis(), dedup.values.toList())
     }
 
-    fun isValidFile(file: File): Boolean {
-        return ZipFile(file).getEntry(METADATA_FILE) != null
+    private fun deserializeViewModel(
+        viewModel: StickerViewModel,
+        board: Board,
+        resources: Resources
+    ) {
+        viewModel.stickers.value!!.clear()
+        board.stickers.flatMapTo(viewModel.stickers.value!!) { metadata ->
+            metadata.instances.map { entry ->
+                val bitmap = BitmapFactory.decodeByteArray(metadata.bitmap, 0, metadata.bitmap.size)
+                val drawable = BitmapDrawable(resources, bitmap)
+                val sticker = DrawableSticker(drawable)
+                sticker.realBounds = entry.bounds
+                sticker.croppedBounds = entry.cropBounds
+                sticker.setMatrix(entry.matrix)
+                sticker.isFlippedHorizontally = entry.flipHorizontal
+                sticker.isFlippedVertically = entry.flipVertical
+                sticker
+            }
+        }
     }
 
-    fun deserialize(view: StickerView, stream: InputStream, resources: Resources): Boolean {
-//        if (!isValidFile(file)) {
-//            return false
-//        }
+    fun serialize(viewModel: StickerViewModel, file: File) {
+        val board = serializeViewModel(viewModel)
 
-        val zipStream = ZipInputStream(BufferedInputStream(stream))
-
-        val bitmapArrays: MutableMap<String, ByteArray> = HashMap()
-        var metadata: Metadata? = null
-
-        while (true) {
-            val entry: ZipEntry = zipStream.nextEntry ?: break
-            val fileName = entry.name
-            val streamBuilder = ByteArrayOutputStream()
-            var bytesRead: Int
-            val tempBuffer = ByteArray(8192 * 2)
-            while (zipStream.read(tempBuffer).also { bytesRead = it } != -1) {
-                streamBuilder.write(tempBuffer, 0, bytesRead)
+        // Why isn't there a maintained binary serialization library for Android? MoshiPack is
+        // several Kotlin versions out of date, and Moshi is way too slow because it's JSON.
+        MessagePack.newDefaultPacker(BufferedOutputStream(FileOutputStream(file)))
+            .use { p ->
+                p.packLong(board.date)
+                p.packArrayHeader(board.stickers.size)
+                board.stickers.forEach { sticker ->
+                    p.packBinaryHeader(sticker.bitmap.size)
+                    p.addPayload(sticker.bitmap)
+                    p.packArrayHeader(sticker.instances.size)
+                    sticker.instances.forEach {
+                        p.packRect(it.bounds)
+                        p.packMatrix(it.matrix)
+                        p.packRectF(it.cropBounds)
+                        p.packBoolean(it.flipHorizontal)
+                        p.packBoolean(it.flipVertical)
+                    }
+                }
             }
-            val bytes = streamBuilder.toByteArray()
-            if (fileName == METADATA_FILE) {
-                metadata = getGson().fromJson(String(bytes, Charsets.UTF_8), Metadata::class.java)
-            } else {
-                bitmapArrays[fileName] = bytes
+    }
+
+    fun deserialize(viewModel: StickerViewModel, inputStream: InputStream, resources: Resources) {
+        val unpacked = MessagePack.newDefaultUnpacker(inputStream)
+            .use { u ->
+                val date = u.unpackLong()
+                val stickerCount = u.unpackArrayHeader()
+                val stickers: ArrayList<StickerMetadata> = ArrayList()
+                (0 until stickerCount).mapTo(stickers) {
+                    val bitmapSize = u.unpackBinaryHeader()
+                    val bitmap = u.readPayload(bitmapSize)
+                    val instanceCount = u.unpackArrayHeader()
+                    val instances: ArrayList<Entry> = ArrayList()
+                    (0 until instanceCount).mapTo(instances) {
+                        val bounds = u.unpackRect()
+                        val matrix = u.unpackMatrix()
+                        val cropBounds = u.unpackRectF()
+                        val flipHorizontal = u.unpackBoolean()
+                        val flipVertical = u.unpackBoolean()
+                        Entry(bounds, matrix, cropBounds, flipHorizontal, flipVertical)
+                    }
+                    StickerMetadata(bitmap, instances)
+                }
+                Board(date, stickers)
             }
-            streamBuilder.close()
-        }
 
-        bitmapArrays.forEach { (t, u) ->
-            val entry = metadata!!.entries[t]!!
-            val bitmap = BitmapFactory.decodeByteArray(u, 0, u.size)
-            val drawable = BitmapDrawable(resources, bitmap)
-            val sticker = DrawableSticker(drawable)
-            sticker.realBounds = entry.bounds
-            sticker.croppedBounds = entry.cropBounds
-            sticker.setMatrix(entry.matrix)
-            sticker.isFlippedHorizontally = entry.flipHorizontal
-            sticker.isFlippedVertically = entry.flipVertical
-            view.setHandlingSticker(sticker)
-        }
-
-        zipStream.close()
-
-        return true
+        deserializeViewModel(viewModel, unpacked, resources)
     }
 }

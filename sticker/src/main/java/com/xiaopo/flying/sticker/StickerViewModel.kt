@@ -39,6 +39,7 @@ open class StickerViewModel :
     }
 
     var isFirstRun: Boolean = true
+    var currentFileName: String? = null
 
     private val onStickerAreaTouchListener: OnStickerAreaTouchListener? = null
 
@@ -330,7 +331,7 @@ open class StickerViewModel :
         // HACK if application logic is really meant to be handled in the ViewModel, how do you
         // communicate from the View to the ViewModel? There can't be a GestureDetector in the
         // ViewModel because it retains the activity's context.
-        (view as StickerView).detectIconGesture(event)
+        view.detectIconGesture(event)
 
         if (currentIcon.value != null) {
             currentMode.value = ActionMode.ICON
@@ -490,6 +491,40 @@ open class StickerViewModel :
         cropSticker(handlingSticker.value, event, gravity)
     }
 
+    private fun convertFlippedGravity(sticker: Sticker, gravity: Int): Int =
+        if (sticker.isFlippedHorizontally) {
+            if (sticker.isFlippedVertically) {
+                when (gravity) {
+                    BitmapStickerIcon.LEFT_TOP -> BitmapStickerIcon.RIGHT_BOTTOM
+                    BitmapStickerIcon.LEFT_BOTTOM -> BitmapStickerIcon.RIGHT_TOP
+                    BitmapStickerIcon.RIGHT_TOP -> BitmapStickerIcon.LEFT_BOTTOM
+                    BitmapStickerIcon.RIGHT_BOTTOM -> BitmapStickerIcon.LEFT_TOP
+                    else -> gravity
+                }
+            } else {
+                when (gravity) {
+                    BitmapStickerIcon.LEFT_TOP -> BitmapStickerIcon.RIGHT_TOP
+                    BitmapStickerIcon.LEFT_BOTTOM -> BitmapStickerIcon.RIGHT_BOTTOM
+                    BitmapStickerIcon.RIGHT_TOP -> BitmapStickerIcon.LEFT_TOP
+                    BitmapStickerIcon.RIGHT_BOTTOM -> BitmapStickerIcon.LEFT_BOTTOM
+                    else -> gravity
+                }
+            }
+        } else {
+            if (sticker.isFlippedVertically) {
+                when (gravity) {
+                    BitmapStickerIcon.LEFT_TOP -> BitmapStickerIcon.LEFT_BOTTOM
+                    BitmapStickerIcon.LEFT_BOTTOM -> BitmapStickerIcon.LEFT_TOP
+                    BitmapStickerIcon.RIGHT_TOP -> BitmapStickerIcon.RIGHT_BOTTOM
+                    BitmapStickerIcon.RIGHT_BOTTOM -> BitmapStickerIcon.RIGHT_TOP
+                    else -> gravity
+                }
+            } else {
+                gravity
+            }
+        }
+
+
     protected fun cropSticker(sticker: Sticker?, event: MotionEvent, gravity: Int) {
         if (sticker == null) {
             return
@@ -503,11 +538,12 @@ open class StickerViewModel :
         val temp = floatArrayOf(dx, dy)
         inv.mapPoints(temp)
         inv2.mapPoints(temp)
-        val pointOnSticker = PointF(temp[0], temp[1])
         val cropped = RectF(sticker.getCroppedBounds())
         val px = temp[0].toInt()
         val py = temp[1].toInt()
-        when (gravity) {
+
+        val flippedGravity = convertFlippedGravity(sticker, gravity)
+        when (flippedGravity) {
             BitmapStickerIcon.LEFT_TOP -> {
                 cropped.left = Math.min(px.toFloat(), cropped.right)
                 cropped.top = Math.min(py.toFloat(), cropped.bottom)
@@ -530,7 +566,6 @@ open class StickerViewModel :
 
     protected fun findCurrentIconTouched(): BitmapStickerIcon? {
         for (icon in activeIcons.value!!) {
-            val pos = icon.mappedPos
             val x: Float = icon.x + icon.iconRadius - downXScaled
             val y: Float = icon.y + icon.iconRadius - downYScaled
             val distancePow2 = x * x + y * y
@@ -548,7 +583,7 @@ open class StickerViewModel :
     protected fun findHandlingSticker(): Sticker? {
         stickers.value?.let {
             for (i in it.indices.reversed()) {
-                if (isInStickerArea(it[i], downX, downY)) {
+                if (isInStickerAreaCropped(it[i], downX, downY)) {
                     return it[i]
                 }
             }
@@ -560,6 +595,12 @@ open class StickerViewModel :
         tmp[0] = downX
         tmp[1] = downY
         return sticker.contains(tmp)
+    }
+
+    protected fun isInStickerAreaCropped(sticker: Sticker, downX: Float, downY: Float): Boolean {
+        tmp[0] = downX
+        tmp[1] = downY
+        return sticker.containsCropped(tmp)
     }
 
     protected fun calculateMidPoint(event: MotionEvent?): PointF {

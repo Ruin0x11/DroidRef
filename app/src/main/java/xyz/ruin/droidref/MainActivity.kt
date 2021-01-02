@@ -6,15 +6,15 @@ import android.app.AlertDialog
 import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.database.Cursor
 import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Parcelable
-import android.util.Log
-import android.widget.ImageButton
-import android.widget.Toast
-import android.widget.ToggleButton
+import android.provider.OpenableColumns
+import android.text.InputType
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -30,6 +30,8 @@ import timber.log.Timber
 import xyz.ruin.droidref.databinding.ActivityMainBinding
 import java.io.File
 import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
     private lateinit var stickerViewModel: StickerViewModel
@@ -127,7 +129,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
     private fun setupIcons() {
         //currently you can config your own icons and icon event
         //the event you can custom
@@ -163,11 +164,19 @@ class MainActivity : AppCompatActivity() {
             BitmapStickerIcon.LEFT_BOTTOM
         )
         flipVerticallyIcon.iconEvent = FlipVerticallyEvent()
-        stickerViewModel.icons.value =
-            arrayListOf(deleteIcon, zoomIcon, flipIcon, flipVerticallyIcon)
+        stickerViewModel.icons.value = arrayListOf(deleteIcon, zoomIcon, flipIcon, flipVerticallyIcon)
+        stickerViewModel.activeIcons.value = stickerViewModel.icons.value
     }
 
     private fun save() {
+        if (stickerViewModel.currentFileName != null) {
+            doSave(stickerViewModel.currentFileName!!)
+        } else {
+            saveAs()
+        }
+    }
+
+    private fun saveAs() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
             != PackageManager.PERMISSION_GRANTED
         ) {
@@ -178,16 +187,35 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        // Create a path where we will place our private file on external
-        // storage.
-        val file = File(getExternalFilesDir(null), "test.zip")
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Choose File Name")
+
+        val formatter = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
+        val defaultFileName: String = formatter.format(Calendar.getInstance().time) + SAVE_FILE_EXTENSION
+
+        val input = EditText(this)
+        input.inputType = InputType.TYPE_CLASS_TEXT
+        input.setText(defaultFileName, TextView.BufferType.EDITABLE)
+        builder.setView(input)
+
+        builder.setPositiveButton(
+            "OK"
+        ) { dialog, which -> doSave(input.text.toString()) }
+        builder.setNegativeButton(
+            "Cancel"
+        ) { dialog, which -> dialog.cancel() }
+
+        builder.show()
+    }
+
+    private fun doSave(fileName: String) {
+        val file = File(getExternalFilesDir(null), fileName)
 
         try {
-//            StickerViewSerializer().serialize(stickerView, file)
+            StickerViewSerializer().serialize(stickerViewModel, file)
+            stickerViewModel.currentFileName = fileName
             Toast.makeText(this, "Saved to $file", Toast.LENGTH_SHORT).show()
         } catch (e: IOException) {
-            // Unable to create file, likely because external storage is
-            // not currently mounted.
             Timber.e(e, "Error writing %s", file)
             Toast.makeText(this, "Error writing $file", Toast.LENGTH_LONG).show()
         }
@@ -205,7 +233,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val intent = Intent()
-        intent.type = "application/zip"
+        intent.type = "*/*"
         intent.action = Intent.ACTION_GET_CONTENT
         startActivityForResult(
             Intent.createChooser(intent, "Open Saved File"),
@@ -213,20 +241,47 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    private fun getFileNameOfUri(uri: Uri): String? {
+        var result: String? = null
+        if (uri.scheme.equals("content")) {
+            val cursor: Cursor? = contentResolver.query(uri, null, null, null, null)
+            try {
+                if (cursor != null && cursor.moveToFirst()) {
+                    result = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME))
+                }
+            } finally {
+                cursor?.close()
+            }
+        }
+        if (result == null) {
+            result = uri.path
+            val cut = result!!.lastIndexOf('/')
+            if (cut != -1) {
+                result = result.substring(cut + 1)
+            }
+        }
+        return result
+    }
+
     private fun doLoad(file: Uri) {
         try {
             val stream = contentResolver.openInputStream(file)!!
-//            if (!StickerViewSerializer().deserialize(stickerView, stream, resources)) {
-//                Toast.makeText(stickerView.context, "Invalid file", Toast.LENGTH_LONG).show()
-//                return
-//            }
-            Toast.makeText(this, "Loaded from $file", Toast.LENGTH_SHORT).show()
+            StickerViewSerializer().deserialize(stickerViewModel, stream, resources)
+            val fileName = getFileNameOfUri(file)
+            Toast.makeText(this, "Loaded from $fileName", Toast.LENGTH_SHORT).show()
+            stickerViewModel.currentFileName = fileName
         } catch (e: IOException) {
             // Unable to create file, likely because external storage is
             // not currently mounted.
-            Log.w("ExternalStorage", "Error writing $file", e)
+            Timber.e(e, "Error writing %s", file)
             Toast.makeText(this, "Error reading $file", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun newBoard() {
+        stickerViewModel.removeAllStickers()
+        stickerViewModel.resetView()
+        stickerViewModel.currentFileName = null
     }
 
     private fun addSticker() {
@@ -270,14 +325,16 @@ class MainActivity : AppCompatActivity() {
         val buttonSave = findViewById<ImageButton>(R.id.buttonSave)
         buttonSave.setOnClickListener { save() }
 
+        val buttonSaveAs = findViewById<ImageButton>(R.id.buttonSaveAs)
+        buttonSaveAs.setOnClickListener { saveAs() }
+
         val buttonNew = findViewById<ImageButton>(R.id.buttonNew)
         buttonNew.setOnClickListener {
             val dialogClickListener =
                 DialogInterface.OnClickListener { _, which ->
                     when (which) {
                         DialogInterface.BUTTON_POSITIVE -> {
-                            stickerViewModel.removeAllStickers()
-                            stickerViewModel.resetView()
+                            newBoard()
                         }
                         DialogInterface.BUTTON_NEGATIVE -> {
                         }
@@ -338,32 +395,11 @@ class MainActivity : AppCompatActivity() {
             DrawableSticker(drawable2),
             Sticker.Position.BOTTOM or Sticker.Position.LEFT
         )
-        val bubble =
-            ContextCompat.getDrawable(this, R.drawable.bubble)
-//        val textSticker = TextSticker(applicationContext)
-//        textSticker.withUnderline(true)
-//        stickerView.addSticker(
-//            textSticker
-//                .setDrawable(bubble!!)
-//                .setText("Sticker\n")
-//                .setMaxTextSize(14f)
-//                .resizeText()
-//            , Sticker.Position.TOP
-//        )
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int, permissions: Array<String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERM_RQST_CODE && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            loadSticker()
-        }
     }
 
     companion object {
         const val PERM_RQST_CODE = 110
+        const val SAVE_FILE_EXTENSION: String = ".ref"
 
         const val INTENT_PICK_IMAGE = 1
         const val INTENT_PICK_SAVED_FILE = 2

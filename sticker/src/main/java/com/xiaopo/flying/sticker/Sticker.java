@@ -41,11 +41,23 @@ public abstract class Sticker {
     private Matrix finalMatrix = new Matrix();
     private boolean isFlippedHorizontally;
     private boolean isFlippedVertically;
-    protected RectF croppedBounds;
     protected Rect realBounds;
+    protected RectF croppedBounds;
 
     private boolean visible = true;
 
+    public Sticker() {}
+
+    public Sticker(Sticker other) {
+        this.matrix.set(other.matrix);
+        this.canvasMatrix.set(other.canvasMatrix);
+        this.realBounds = new Rect(other.realBounds);
+        this.croppedBounds = new RectF(other.croppedBounds);
+        this.isFlippedHorizontally = other.isFlippedHorizontally;
+        this.isFlippedVertically = other.isFlippedVertically;
+
+        this.recalcFinalMatrix();
+    }
 
     public boolean isFlippedHorizontally() {
         return isFlippedHorizontally;
@@ -287,6 +299,18 @@ public abstract class Sticker {
     }
 
     @NonNull
+    public PointF getCenterPointCropped() {
+        PointF center = new PointF();
+        getCenterPointCropped(center);
+        return center;
+    }
+
+    public void getCenterPointCropped(@NonNull PointF dst) {
+        dst.set(croppedBounds.left + (croppedBounds.right - croppedBounds.left) / 2,
+                croppedBounds.top  + (croppedBounds.bottom - croppedBounds.top) / 2);
+    }
+
+    @NonNull
     public PointF getMappedCenterPoint() {
         PointF pointF = getCenterPoint();
         getMappedCenterPoint(pointF, new float[2], new float[2]);
@@ -296,6 +320,16 @@ public abstract class Sticker {
     public void getMappedCenterPoint(@NonNull PointF dst, @NonNull float[] mappedPoints,
                                      @NonNull float[] src) {
         getCenterPoint(dst);
+        src[0] = dst.x;
+        src[1] = dst.y;
+        getMappedPointsPre(mappedPoints, src);
+        dst.set(mappedPoints[0], mappedPoints[1]);
+    }
+
+
+    public void getMappedCenterPointCropped(@NonNull PointF dst, @NonNull float[] mappedPoints,
+                                     @NonNull float[] src) {
+        getCenterPointCropped(dst);
         src[0] = dst.x;
         src[1] = dst.y;
         getMappedPointsPre(mappedPoints, src);

@@ -2,6 +2,7 @@ package com.xiaopo.flying.sticker
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
@@ -50,7 +51,7 @@ object StickerViewBindingAdapters {
     @JvmStatic
     @BindingAdapter("canvasMatrix")
     fun setCanvasMatrix(view: StickerView, value: ObservableMatrix) {
-        view.canvasMatrix.set(value.getMatrix())
+        view.canvasMatrix.setMatrix(value.getMatrix())
     }
 
     @JvmStatic

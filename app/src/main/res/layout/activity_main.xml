@@ -8,11 +8,10 @@
         <variable name="viewModel" type="com.xiaopo.flying.sticker.StickerViewModel" />
     </data>
 
-    <LinearLayout
+    <FrameLayout
         android:id="@+id/activity_main"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent">
 
         <RelativeLayout
             android:layout_width="match_parent"
@@ -24,26 +23,25 @@
                 android:layout_height="match_parent"
                 android:layout_gravity="center"
                 android:layout_weight="1"
+                app:activeIcons="@={viewModel.activeIcons}"
                 app:bringToFrontCurrentSticker="true"
+                app:canvasMatrix="@{viewModel.canvasMatrix}"
+                app:constrained="@{viewModel.constrained}"
+
+                app:currentIcon="@{viewModel.currentIcon}"
+                app:currentMode="@{viewModel.currentMode}"
+                app:gestureDetector="@{viewModel.gestureListener}"
+                app:handlingSticker="@{viewModel.handlingSticker}"
+                app:icons="@{viewModel.icons}"
+                app:isCropActive="@{viewModel.isCropActive}"
+                app:isLocked="@{viewModel.isLocked}"
+                app:mustLockToPan="@{viewModel.mustLockToPan}"
+                app:onTouchListener="@{viewModel.onTouchListener}"
+                app:rotationEnabled="@{viewModel.rotationEnabled}"
                 app:showAuxiliaryLines="false"
                 app:showBorder="true"
                 app:showIcons="true"
-
-                app:isLocked="@{viewModel.isLocked}"
-                app:mustLockToPan="@{viewModel.mustLockToPan}"
-                app:rotationEnabled="@{viewModel.rotationEnabled}"
-                app:constrained="@{viewModel.constrained}"
-                app:isCropActive="@{viewModel.isCropActive}"
-                app:canvasMatrix="@{viewModel.canvasMatrix}"
-                app:stickers="@{viewModel.stickers}"
-                app:icons="@{viewModel.icons}"
-                app:handlingSticker="@{viewModel.handlingSticker}"
-                app:onTouchListener="@{viewModel.onTouchListener}"
-                app:currentMode="@{viewModel.currentMode}"
-                app:currentIcon="@{viewModel.currentIcon}"
-                app:gestureDetector="@{viewModel.gestureListener}"
-                app:activeIcons="@={viewModel.activeIcons}"
-                >
+                app:stickers="@{viewModel.stickers}">
 
                 <View
                     android:id="@+id/view"
@@ -126,6 +124,13 @@
                         android:layout_weight="1"
                         app:srcCompat="@drawable/ic_refresh_black_24dp" />
 
+                    <ImageButton
+                        android:id="@+id/buttonDuplicate"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        app:srcCompat="@drawable/ic_baseline_content_copy_24" />
+
                     <ToggleButton
                         android:id="@+id/buttonLock"
                         android:layout_width="wrap_content"
@@ -136,7 +141,8 @@
                         android:minWidth="1dp"
                         android:textOff=""
                         android:textOn=""
-                        android:textSize="0dp" />
+                        android:textSize="0dp"
+                        android:checked="@={viewModel.isLocked}"/>
 
                     <ToggleButton
                         android:id="@+id/buttonCrop"
@@ -148,14 +154,8 @@
                         android:minWidth="1dp"
                         android:textOff=""
                         android:textOn=""
-                        android:textSize="0dp" />
-
-                    <ImageButton
-                        android:id="@+id/buttonResetZoom"
-                        android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        app:srcCompat="@drawable/ic_zoom_out_map_black_24dp" />
+                        android:textSize="0dp"
+                        android:checked="@={viewModel.isCropActive}"/>
 
                     <ImageButton
                         android:id="@+id/buttonResetCrop"
@@ -163,8 +163,32 @@
                         android:layout_height="match_parent"
                         android:layout_weight="1"
                         app:srcCompat="@drawable/ic_crop_rotate_black_24dp" />
+
+                    <ImageButton
+                        android:id="@+id/buttonResetZoom"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        app:srcCompat="@drawable/ic_zoom_out_map_black_24dp" />
                 </LinearLayout>
             </HorizontalScrollView>
         </RelativeLayout>
-    </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/progressBarHolder"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:alpha="0.4"
+            android:animateLayoutChanges="true"
+            android:background="#000000"
+            android:visibility="gone">
+
+            <ProgressBar
+                android:id="@+id/progressBar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:indeterminate="true" />
+        </FrameLayout>
+    </FrameLayout>
 </layout>

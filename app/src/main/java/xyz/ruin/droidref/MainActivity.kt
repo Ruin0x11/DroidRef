@@ -7,25 +7,32 @@ import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
+import android.os.AsyncTask
 import android.os.Bundle
 import android.os.Parcelable
 import android.provider.OpenableColumns
 import android.text.InputType
+import android.util.Patterns
+import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.databinding.DataBindingUtil
 import androidx.lifecycle.ViewModelProvider
+import com.github.kittinunf.fuel.core.FuelManager
+import com.github.kittinunf.fuel.core.Headers
 import com.xiaopo.flying.sticker.*
 import com.xiaopo.flying.sticker.StickerView.OnStickerOperationListener
 import com.xiaopo.flying.sticker.iconEvents.DeleteIconEvent
 import com.xiaopo.flying.sticker.iconEvents.FlipHorizontallyEvent
 import com.xiaopo.flying.sticker.iconEvents.FlipVerticallyEvent
 import com.xiaopo.flying.sticker.iconEvents.ZoomIconEvent
+import kotlinx.android.synthetic.main.activity_main.view.*
 import timber.log.Timber
 import xyz.ruin.droidref.databinding.ActivityMainBinding
 import java.io.File
@@ -101,6 +108,12 @@ class MainActivity : AppCompatActivity() {
             loadSticker()
         }
         handleIntent(intent)
+        intent.type = null // Don't run again if rotated/etc.
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
     }
 
     private fun handleIntent(intent: Intent?) {
@@ -108,6 +121,8 @@ class MainActivity : AppCompatActivity() {
             intent?.action == Intent.ACTION_SEND -> {
                 if (intent.type?.startsWith("image/") == true) {
                     handleSendImage(intent)
+                } else if (intent.type == "text/plain") {
+                    handleSendLink(intent)
                 }
             }
             intent?.action == Intent.ACTION_SEND_MULTIPLE
@@ -127,6 +142,80 @@ class MainActivity : AppCompatActivity() {
                 (it as? Uri)?.let(this@MainActivity::doAddSticker)
             }
         }
+    }
+
+    private class FetchImageFromLinkTask(val text: String, val context: MainActivity) : AsyncTask<Void, Void, Void>() {
+        override fun onPreExecute() {
+            super.onPreExecute()
+            context.binding.activityMain.progressBarHolder.visibility = View.VISIBLE
+        }
+
+        override fun onPostExecute(aVoid: Void?) {
+            super.onPostExecute(aVoid)
+        }
+
+        override fun doInBackground(vararg params: Void?): Void? {
+            try {
+                val fuel = FuelManager()
+                fuel.baseHeaders = mapOf(Headers.USER_AGENT to "Mozilla/5.0 (X11; Linux x86_64; rv:76.0) Gecko/20100101 Firefox/76.0")
+
+                fuel.head(text).response { _, head, result ->
+                    result.fold({
+                        val contentType = head.headers[Headers.CONTENT_TYPE]
+                        if (!contentType.any { it.startsWith("image/") }) {
+                            Toast.makeText(context, "Link is not an image", Toast.LENGTH_LONG)
+                                .show()
+                            context.binding.activityMain.progressBarHolder.visibility = View.GONE
+                            return@response
+                        }
+
+                        fuel.get(text)
+                            .response { _, _, body ->
+                                body.fold({
+                                    val bitmap = BitmapFactory.decodeByteArray(it, 0, it.size)
+                                    context.doAddSticker(bitmap)
+                                    context.binding.activityMain.progressBarHolder.visibility =
+                                        View.GONE
+                                }, {
+                                    Toast.makeText(
+                                        context,
+                                        "Failed to download image: $it",
+                                        Toast.LENGTH_LONG
+                                    )
+                                        .show()
+                                    context.binding.activityMain.progressBarHolder.visibility =
+                                        View.GONE
+                                    Timber.e(it)
+                                })
+                            }
+                    }, {
+                        context.binding.activityMain.progressBarHolder.visibility = View.GONE
+                        Toast.makeText(context, "Failed to download image", Toast.LENGTH_LONG)
+                            .show()
+                        Timber.e(it)
+                    })
+                }
+            } catch (e: Exception) {
+                Timber.e(e)
+                Toast.makeText(context, "Invalid link", Toast.LENGTH_LONG).show()
+                context.binding.activityMain.progressBarHolder.visibility = View.GONE
+            }
+            return null
+        }
+    }
+
+    private fun isValidUrl(text: String) = Patterns.WEB_URL.matcher(text).matches()
+
+    private fun handleSendLink(intent: Intent) {
+        requestPermission(Manifest.permission.INTERNET)
+        requestPermission(Manifest.permission.ACCESS_NETWORK_STATE)
+
+        val text = intent.getStringExtra(Intent.EXTRA_TEXT)!!
+        if (!isValidUrl(text)) {
+            Toast.makeText(this, "Invalid link", Toast.LENGTH_LONG).show()
+        }
+
+        FetchImageFromLinkTask(text, this).execute()
     }
 
     private fun setupIcons() {
@@ -164,7 +253,12 @@ class MainActivity : AppCompatActivity() {
             BitmapStickerIcon.LEFT_BOTTOM
         )
         flipVerticallyIcon.iconEvent = FlipVerticallyEvent()
-        stickerViewModel.icons.value = arrayListOf(deleteIcon, zoomIcon, flipIcon, flipVerticallyIcon)
+        stickerViewModel.icons.value = arrayListOf(
+            deleteIcon,
+            zoomIcon,
+            flipIcon,
+            flipVerticallyIcon
+        )
         stickerViewModel.activeIcons.value = stickerViewModel.icons.value
     }
 
@@ -177,16 +271,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun saveAs() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                PERM_RQST_CODE
-            )
-        }
-
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Choose File Name")
 
@@ -209,6 +293,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun doSave(fileName: String) {
+        requestPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+
         val file = File(getExternalFilesDir(null), fileName)
 
         try {
@@ -222,15 +308,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun load() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
-                PERM_RQST_CODE
-            )
-        }
+        requestPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
 
         val intent = Intent()
         intent.type = "*/*"
@@ -268,8 +346,9 @@ class MainActivity : AppCompatActivity() {
             val stream = contentResolver.openInputStream(file)!!
             StickerViewSerializer().deserialize(stickerViewModel, stream, resources)
             val fileName = getFileNameOfUri(file)
-            Toast.makeText(this, "Loaded from $fileName", Toast.LENGTH_SHORT).show()
+            //Toast.makeText(this, "Loaded $fileName", Toast.LENGTH_SHORT).show()
             stickerViewModel.currentFileName = fileName
+            stickerViewModel.isLocked.value = true
         } catch (e: IOException) {
             // Unable to create file, likely because external storage is
             // not currently mounted.
@@ -294,10 +373,25 @@ class MainActivity : AppCompatActivity() {
     private fun doAddSticker(file: Uri) {
         val imageStream = contentResolver.openInputStream(file)
         val bitmap = BitmapFactory.decodeStream(imageStream)
+        doAddSticker(bitmap)
+    }
+
+    private fun doAddSticker(bitmap: Bitmap?) {
         if (bitmap == null) {
             Toast.makeText(this, "Could not decode image", Toast.LENGTH_SHORT).show()
         } else {
-            val drawable = BitmapDrawable(resources, bitmap)
+            // Resize absurdly large images
+            val totalSize = bitmap.width * bitmap.height
+            val newBitmap = if (totalSize > MAX_SIZE_PIXELS) {
+                val scaleFactor: Float = MAX_SIZE_PIXELS.toFloat() / totalSize.toFloat()
+                val scaled = Bitmap.createScaledBitmap(bitmap, (bitmap.width * scaleFactor).toInt(), (bitmap.height * scaleFactor).toInt(), false)
+                Timber.w("Scaled huge bitmap, memory savings: %dMB", (bitmap.allocationByteCount - scaled.allocationByteCount) / (1024 * 1024))
+                scaled
+            } else {
+                bitmap
+            }
+
+            val drawable = BitmapDrawable(resources, newBitmap)
             stickerViewModel.addSticker(DrawableSticker(drawable))
         }
     }
@@ -352,13 +446,16 @@ class MainActivity : AppCompatActivity() {
             addSticker()
         }
 
+        val buttonReset = findViewById<ImageButton>(R.id.buttonReset)
+        buttonReset.setOnClickListener { stickerViewModel.resetView() }
+
+        val buttonDuplicate = findViewById<ImageButton>(R.id.buttonDuplicate)
+        buttonDuplicate.setOnClickListener { stickerViewModel.duplicateCurrentSticker() }
+
         val buttonLock = findViewById<ToggleButton>(R.id.buttonLock)
         buttonLock.setOnCheckedChangeListener { _, isToggled ->
             stickerViewModel.isLocked.value = isToggled
         }
-
-        val buttonReset = findViewById<ImageButton>(R.id.buttonReset)
-        buttonReset.setOnClickListener { stickerViewModel.resetView() }
 
         val buttonCrop = findViewById<ToggleButton>(R.id.buttonCrop)
         buttonCrop.setOnCheckedChangeListener { _, isToggled ->
@@ -397,11 +494,34 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    override fun onBackPressed() {
+        AlertDialog.Builder(this)
+            .setIcon(android.R.drawable.ic_dialog_alert)
+            .setTitle("Confirm")
+            .setMessage("Are you sure you want to quit?")
+            .setPositiveButton( "Yes") { _, _ -> finish() }
+            .setNegativeButton("No", null)
+            .show()
+    }
+
+    private fun requestPermission(permission: String) {
+        if (ActivityCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(permission),
+                PERM_RQST_CODE
+            )
+        }
+    }
+
     companion object {
         const val PERM_RQST_CODE = 110
         const val SAVE_FILE_EXTENSION: String = ".ref"
 
         const val INTENT_PICK_IMAGE = 1
         const val INTENT_PICK_SAVED_FILE = 2
+
+        const val MAX_SIZE_PIXELS = 2000 * 2000
     }
 }

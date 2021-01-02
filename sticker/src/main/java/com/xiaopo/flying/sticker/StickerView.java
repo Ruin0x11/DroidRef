@@ -36,8 +36,6 @@ import java.util.List;
  */
 public class StickerView extends FrameLayout {
 
-//    private static final String TAG = StickerView.class.getSimpleName();
-
     private GestureDetector gestureDetector;
 
     private final boolean showIcons;
@@ -63,7 +61,7 @@ public class StickerView extends FrameLayout {
 
     private final Matrix sizeMatrix = new Matrix();
 
-    private final Matrix canvasMatrix = new Matrix();
+    private final ObservableMatrix canvasMatrix = new ObservableMatrix();
 
     private final float[] bitmapPoints = new float[8];
     private final float[] bounds = new float[8];
@@ -191,7 +189,7 @@ public class StickerView extends FrameLayout {
         float y4 = bitmapPoints[7];
 
         canvas.save();
-        canvas.concat(canvasMatrix);
+        canvas.concat(canvasMatrix.getMatrix());
         if (showBorder) {
             canvas.drawLine(x1, y1, x2, y2, borderPaint);
             canvas.drawLine(x1, y1, x3, y3, borderPaint);
@@ -211,10 +209,10 @@ public class StickerView extends FrameLayout {
             if (sticker != null) {
                 if (sticker.isVisible()) {
                     sticker.draw(canvas);
-                    if (isCropActive && handlingSticker != sticker) {
-                        getStickerPoints(sticker, bitmapPoints);
-                        drawBorder(canvas, bitmapPoints, R.color.enabled, 4);
-                    }
+//                    if (isCropActive && handlingSticker != sticker) {
+//                        getStickerPoints(sticker, bitmapPoints);
+//                        drawBorder(canvas, bitmapPoints, R.color.enabled, 4);
+//                    }
                 }
             }
         }
@@ -279,18 +277,13 @@ public class StickerView extends FrameLayout {
 
         icon.getMatrix().postRotate(rotation, icon.getWidth() / 2f, icon.getHeight() / 2f);
         icon.getMatrix().postTranslate(x - icon.getWidth() / 2f, y - icon.getHeight() / 2f);
-        icon.setCanvasMatrix(canvasMatrix);
+        icon.setCanvasMatrix(canvasMatrix.getMatrix());
         Matrix a = new Matrix();
         canvasMatrix.invert(a);
         float radius = a.mapRadius(BitmapStickerIcon.DEFAULT_ICON_RADIUS);
         icon.setIconRadius(radius);
         icon.getMatrix().postScale(radius / BitmapStickerIcon.DEFAULT_ICON_RADIUS, radius / BitmapStickerIcon.DEFAULT_ICON_RADIUS, x, y);
         icon.recalcFinalMatrix();
-    }
-
-    @Override
-    protected void onSizeChanged(int w, int h, int oldW, int oldH) {
-        super.onSizeChanged(w, h, oldW, oldH);
     }
 
     public void detectIconGesture(@NotNull MotionEvent event) {
@@ -342,10 +335,10 @@ public class StickerView extends FrameLayout {
     protected void setStickerPosition(@NonNull Sticker sticker, @Sticker.Position int position) {
         float centerX = 0;
         float centerY = 0;
-        float temp2[] = {sticker.getWidth(), sticker.getHeight()};
-        canvasMatrix.mapVectors(temp2);
-        float sw = temp2[0];
-        float sh = temp2[1];
+        float temp[] = {sticker.getWidth(), sticker.getHeight()};
+        canvasMatrix.getMatrix().mapVectors(temp);
+        float sw = temp[0];
+        float sh = temp[1];
 
         if ((position & Sticker.Position.TOP) > 0) {
             centerY = 0f;
@@ -362,11 +355,11 @@ public class StickerView extends FrameLayout {
             centerX = (getWidth() / 2f) - (sw / 2f);
         }
 
-        float[] temp = {centerX, centerY};
+        float[] temp2 = {centerX, centerY};
         Matrix a = new Matrix();
         canvasMatrix.invert(a);
-        a.mapPoints(temp);
-        sticker.getMatrix().postTranslate(temp[0], temp[1]);
+        a.mapVectors(temp2);
+        sticker.getMatrix().postTranslate(temp2[0], temp2[1]);
     }
 
     public Sticker getHandlingSticker() {
@@ -485,6 +478,7 @@ public class StickerView extends FrameLayout {
     }
 
     private void updateIcons() {
+        this.currentIcon = null;
         if (isCropActive) {
             setActiveIcons(cropIcons);
         } else {
@@ -543,13 +537,14 @@ public class StickerView extends FrameLayout {
 
     public void setStickers(List<Sticker> stickers) {
         this.stickers = stickers;
+        this.handlingSticker = null;
     }
 
-    public Matrix getCanvasMatrix() {
+    public ObservableMatrix getCanvasMatrix() {
         return canvasMatrix;
     }
     public void setCanvasMatrix(Matrix matrix) {
-        canvasMatrix.set(matrix);
+        canvasMatrix.setMatrix(matrix);
     }
 
     public void setGestureDetector(GestureListener gestureListener) {

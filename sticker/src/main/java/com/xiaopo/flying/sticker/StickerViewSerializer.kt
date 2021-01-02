@@ -15,9 +15,10 @@ fun MessagePacker.packMatrix(matrix: Matrix) {
     matrix.getValues(temp)
     temp.forEach { this.packFloat(it) }
 }
+
 fun MessageUnpacker.unpackMatrix(): Matrix {
     val temp = FloatArray(9)
-    (0..8).forEach{ temp[it] = this.unpackFloat() }
+    (0..8).forEach { temp[it] = this.unpackFloat() }
     val matrix = Matrix()
     matrix.setValues(temp)
     return matrix
@@ -29,6 +30,7 @@ fun MessagePacker.packRect(rect: Rect) {
     this.packInt(rect.right)
     this.packInt(rect.bottom)
 }
+
 fun MessageUnpacker.unpackRect(): Rect {
     val left = this.unpackInt()
     val top = this.unpackInt()
@@ -43,6 +45,7 @@ fun MessagePacker.packRectF(rectF: RectF) {
     this.packFloat(rectF.right)
     this.packFloat(rectF.bottom)
 }
+
 fun MessageUnpacker.unpackRectF(): RectF {
     val left = this.unpackFloat()
     val top = this.unpackFloat()
@@ -59,34 +62,9 @@ class StickerViewSerializer {
         val flipHorizontal: Boolean,
         val flipVertical: Boolean
     )
-    data class StickerMetadata(val bitmap: ByteArray, val instances: MutableList<Entry>)
-    data class Board(val date: Long, val stickers: List<StickerMetadata>)
 
-    private fun drawableToBitmap(drawable: Drawable): Bitmap {
-        if (drawable is BitmapDrawable) {
-            val bitmapDrawable = drawable
-            if (bitmapDrawable.bitmap != null) {
-                return bitmapDrawable.bitmap
-            }
-        }
-        var bitmap: Bitmap = if (drawable.intrinsicWidth <= 0 || drawable.intrinsicHeight <= 0) {
-            Bitmap.createBitmap(
-                1,
-                1,
-                Bitmap.Config.ARGB_8888
-            ) // Single color bitmap will be created of 1x1 pixel
-        } else {
-            Bitmap.createBitmap(
-                drawable.intrinsicWidth,
-                drawable.intrinsicHeight,
-                Bitmap.Config.ARGB_8888
-            )
-        }
-        val canvas = Canvas(bitmap)
-        drawable.setBounds(0, 0, canvas.width, canvas.height)
-        drawable.draw(canvas)
-        return bitmap
-    }
+    data class StickerMetadata(val bitmap: ByteArray, val instances: MutableList<Entry>)
+    data class Board(val version: Int, val date: Long, val stickers: List<StickerMetadata>)
 
     private fun sha256(bytes: ByteArray): String {
         val md = MessageDigest.getInstance("SHA-256")
@@ -99,10 +77,6 @@ class StickerViewSerializer {
 
         viewModel.stickers.value!!.forEach {
             val drawableSticker = it as DrawableSticker
-            val bitmap = drawableToBitmap(drawableSticker.drawable)
-            val stream = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
-            val byteArray = stream.toByteArray()
             val entry = Entry(
                 drawableSticker.getRealBounds(),
                 drawableSticker.matrix,
@@ -110,11 +84,13 @@ class StickerViewSerializer {
                 drawableSticker.isFlippedHorizontally,
                 drawableSticker.isFlippedVertically
             )
-            val sha = sha256(byteArray)
-            dedup.getOrPut(sha, { StickerMetadata(byteArray, mutableListOf()) }).instances.add(entry)
+            val sha = sha256(drawableSticker.bitmapCache)
+            dedup.getOrPut(
+                sha,
+                { StickerMetadata(drawableSticker.bitmapCache, mutableListOf()) }).instances.add(entry)
         }
 
-        return Board(System.currentTimeMillis(), dedup.values.toList())
+        return Board(SERIAL_VERSION, System.currentTimeMillis(), dedup.values.toList())
     }
 
     private fun deserializeViewModel(
@@ -122,12 +98,12 @@ class StickerViewSerializer {
         board: Board,
         resources: Resources
     ) {
-        viewModel.stickers.value!!.clear()
+        viewModel.removeAllStickers()
         board.stickers.flatMapTo(viewModel.stickers.value!!) { metadata ->
             metadata.instances.map { entry ->
                 val bitmap = BitmapFactory.decodeByteArray(metadata.bitmap, 0, metadata.bitmap.size)
                 val drawable = BitmapDrawable(resources, bitmap)
-                val sticker = DrawableSticker(drawable)
+                val sticker = DrawableSticker(drawable, metadata.bitmap)
                 sticker.realBounds = entry.bounds
                 sticker.croppedBounds = entry.cropBounds
                 sticker.setMatrix(entry.matrix)
@@ -136,6 +112,8 @@ class StickerViewSerializer {
                 sticker
             }
         }
+
+        viewModel.updateCanvasMatrix()
     }
 
     fun serialize(viewModel: StickerViewModel, file: File) {
@@ -145,6 +123,7 @@ class StickerViewSerializer {
         // several Kotlin versions out of date, and Moshi is way too slow because it's JSON.
         MessagePack.newDefaultPacker(BufferedOutputStream(FileOutputStream(file)))
             .use { p ->
+                p.packInt(board.version)
                 p.packLong(board.date)
                 p.packArrayHeader(board.stickers.size)
                 board.stickers.forEach { sticker ->
@@ -165,6 +144,7 @@ class StickerViewSerializer {
     fun deserialize(viewModel: StickerViewModel, inputStream: InputStream, resources: Resources) {
         val unpacked = MessagePack.newDefaultUnpacker(inputStream)
             .use { u ->
+                val version = u.unpackInt()
                 val date = u.unpackLong()
                 val stickerCount = u.unpackArrayHeader()
                 val stickers: ArrayList<StickerMetadata> = ArrayList()
@@ -183,9 +163,39 @@ class StickerViewSerializer {
                     }
                     StickerMetadata(bitmap, instances)
                 }
-                Board(date, stickers)
+                Board(version, date, stickers)
             }
 
         deserializeViewModel(viewModel, unpacked, resources)
+    }
+
+    companion object {
+        const val SERIAL_VERSION = 1
+
+        fun drawableToBitmap(drawable: Drawable): Bitmap {
+            if (drawable is BitmapDrawable) {
+                val bitmapDrawable = drawable
+                if (bitmapDrawable.bitmap != null) {
+                    return bitmapDrawable.bitmap
+                }
+            }
+            var bitmap: Bitmap = if (drawable.intrinsicWidth <= 0 || drawable.intrinsicHeight <= 0) {
+                Bitmap.createBitmap(
+                    1,
+                    1,
+                    Bitmap.Config.ARGB_8888
+                ) // Single color bitmap will be created of 1x1 pixel
+            } else {
+                Bitmap.createBitmap(
+                    drawable.intrinsicWidth,
+                    drawable.intrinsicHeight,
+                    Bitmap.Config.ARGB_8888
+                )
+            }
+            val canvas = Canvas(bitmap)
+            drawable.setBounds(0, 0, canvas.width, canvas.height)
+            drawable.draw(canvas)
+            return bitmap
+        }
     }
 }

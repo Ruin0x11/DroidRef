@@ -9,6 +9,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import androidx.annotation.IntDef
+import androidx.databinding.Observable
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.xiaopo.flying.sticker.StickerView.Flip
@@ -106,20 +107,21 @@ open class StickerViewModel :
         sticker.setCanvasMatrix(canvasMatrix.value!!.getMatrix())
         sticker.recalcFinalMatrix()
         stickers.value!!.add(sticker)
+        handlingSticker.value = sticker
         stickerOperationListener.onStickerAdded(sticker, position)
     }
 
     fun resetView() {
         canvasMatrix.value!!.setMatrix(Matrix())
         updateCanvasMatrix()
-        stickerOperationListener.onInvalidateView()
     }
 
-    private fun updateCanvasMatrix() {
+    fun updateCanvasMatrix() {
         for (i in stickers.value!!.indices) {
             val sticker: Sticker = stickers.value!![i]
             sticker.setCanvasMatrix(canvasMatrix.value!!.getMatrix())
         }
+        stickerOperationListener.onInvalidateView()
     }
 
     fun removeCurrentSticker(): Boolean {
@@ -151,6 +153,7 @@ open class StickerViewModel :
             handlingSticker.value!!.release()
             handlingSticker.value = null
         }
+        currentIcon.value = null
         stickerOperationListener.onInvalidateView()
     }
 
@@ -429,7 +432,7 @@ open class StickerViewModel :
             val a = Matrix()
             canvasMatrix.value!!.invert(a)
             a.mapPoints(temp)
-            val temp2 = floatArrayOf(sticker.centerPoint.x, sticker.centerPoint.y)
+            val temp2 = floatArrayOf(sticker.centerPointCropped.x, sticker.centerPointCropped.y)
             stickerWorldMatrix.mapPoints(temp2)
             //canvasMatrix.mapPoints(temp2);
             midPoint.x = temp2[0]
@@ -562,6 +565,15 @@ open class StickerViewModel :
             }
         }
         sticker.setCroppedBounds(cropped)
+    }
+
+    fun duplicateCurrentSticker() {
+        handlingSticker.value?.let { duplicateSticker(it) }
+    }
+
+    fun duplicateSticker(sticker: Sticker) {
+        val newSticker = DrawableSticker(sticker as DrawableSticker)
+        addSticker(newSticker)
     }
 
     protected fun findCurrentIconTouched(): BitmapStickerIcon? {

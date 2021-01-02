@@ -7,16 +7,40 @@ import android.graphics.drawable.Drawable;
 import androidx.annotation.IntRange;
 import androidx.annotation.NonNull;
 
+import java.io.ByteArrayOutputStream;
+
 /**
  * @author wupanjie
  */
 public class DrawableSticker extends Sticker {
     private Drawable drawable;
+    private byte[] bitmapCache = new byte[0];
 
     public DrawableSticker(Drawable drawable) {
         this.drawable = drawable;
-        realBounds = new Rect(0, 0, getWidth(), getHeight());
-        croppedBounds = new RectF(realBounds);
+        this.realBounds = new Rect(0, 0, getWidth(), getHeight());
+        this.croppedBounds = new RectF(this.realBounds);
+        cacheBitmap();
+    }
+
+    public DrawableSticker(Drawable drawable, byte[] bitmapCache) {
+        this.drawable = drawable;
+        this.realBounds = new Rect(0, 0, getWidth(), getHeight());
+        this.croppedBounds = new RectF(this.realBounds);
+        this.bitmapCache = bitmapCache;
+    }
+
+    public DrawableSticker(DrawableSticker other) {
+        super(other);
+        this.drawable = other.drawable.getConstantState().newDrawable().mutate();
+    }
+
+    private void cacheBitmap() {
+        // This is extremely expensive, we'd only want to do it once preferably.
+        Bitmap bitmap = StickerViewSerializer.Companion.drawableToBitmap(this.drawable);
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+        this.bitmapCache = stream.toByteArray();
     }
 
     @NonNull
@@ -69,5 +93,13 @@ public class DrawableSticker extends Sticker {
         if (drawable != null) {
             drawable = null;
         }
+    }
+
+    public byte[] getBitmapCache() {
+        return bitmapCache;
+    }
+
+    public void setBitmapCache(byte[] bitmapCache) {
+        this.bitmapCache = bitmapCache;
     }
 }

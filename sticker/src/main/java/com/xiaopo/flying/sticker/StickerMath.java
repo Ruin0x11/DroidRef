@@ -18,7 +18,7 @@ public class StickerMath {
             midPoint.set(0, 0);
             return midPoint;
         }
-        sticker.getMappedCenterPoint(midPoint, point, tmp);
+        sticker.getMappedCenterPointCropped(midPoint, point, tmp);
         return midPoint;
     }
 

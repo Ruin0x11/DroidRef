@@ -13,6 +13,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.AsyncTask
 import android.os.Bundle
+import android.os.Environment
 import android.os.Parcelable
 import android.provider.OpenableColumns
 import android.text.InputType
@@ -107,6 +108,7 @@ class MainActivity : AppCompatActivity() {
             stickerViewModel.isFirstRun = false
             loadSticker()
         }
+
         handleIntent(intent)
         intent.type = null // Don't run again if rotated/etc.
     }
@@ -144,7 +146,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private class FetchImageFromLinkTask(val text: String, val context: MainActivity) : AsyncTask<Void, Void, Void>() {
+    private class FetchImageFromLinkTask(val text: String, val context: MainActivity) :
+        AsyncTask<Void, Void, Void>() {
         override fun onPreExecute() {
             super.onPreExecute()
             context.binding.activityMain.progressBarHolder.visibility = View.VISIBLE
@@ -153,7 +156,8 @@ class MainActivity : AppCompatActivity() {
         override fun doInBackground(vararg params: Void?): Void? {
             try {
                 val fuel = FuelManager()
-                fuel.baseHeaders = mapOf(Headers.USER_AGENT to "Mozilla/5.0 (X11; Linux x86_64; rv:76.0) Gecko/20100101 Firefox/76.0")
+                fuel.baseHeaders =
+                    mapOf(Headers.USER_AGENT to "Mozilla/5.0 (X11; Linux x86_64; rv:76.0) Gecko/20100101 Firefox/76.0")
 
                 fuel.head(text).response { _, head, result ->
                     result.fold({
@@ -271,7 +275,8 @@ class MainActivity : AppCompatActivity() {
         builder.setTitle("Choose File Name")
 
         val formatter = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
-        val defaultFileName: String = formatter.format(Calendar.getInstance().time) + SAVE_FILE_EXTENSION
+        val defaultFileName: String =
+            formatter.format(Calendar.getInstance().time) + "." + SAVE_FILE_EXTENSION
 
         val input = EditText(this)
         input.inputType = InputType.TYPE_CLASS_TEXT
@@ -288,12 +293,23 @@ class MainActivity : AppCompatActivity() {
         builder.show()
     }
 
+    private fun getSaveDirectory() =
+        File(
+            listOf(
+                Environment.getExternalStorageDirectory().absolutePath,
+                Environment.DIRECTORY_PICTURES,
+                resources.getString(R.string.app_name)
+            ).joinToString(File.separator)
+        )
+
     private fun doSave(fileName: String) {
         requestPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
 
-        val file = File(getExternalFilesDir(null), fileName)
+        val saveDir = getSaveDirectory()
+        val file = File(saveDir, fileName)
 
         try {
+            saveDir.mkdirs()
             StickerViewSerializer().serialize(stickerViewModel, file)
             stickerViewModel.currentFileName = fileName
             Toast.makeText(this, "Saved to $file", Toast.LENGTH_SHORT).show()
@@ -315,7 +331,7 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun getFileNameOfUri(uri: Uri): String? {
+    private fun getFileNameOfUri(uri: Uri): String {
         var result: String? = null
         if (uri.scheme.equals("content")) {
             val cursor: Cursor? = contentResolver.query(uri, null, null, null, null)
@@ -338,10 +354,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun doLoad(file: Uri) {
+        val fileName = getFileNameOfUri(file)
+        val extension = File(fileName).extension
+        if (extension != SAVE_FILE_EXTENSION) {
+            Toast.makeText(
+                this,
+                "File does not have '.$SAVE_FILE_EXTENSION' extension",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
         try {
             val stream = contentResolver.openInputStream(file)!!
             StickerViewSerializer().deserialize(stickerViewModel, stream, resources)
-            val fileName = getFileNameOfUri(file)
             //Toast.makeText(this, "Loaded $fileName", Toast.LENGTH_SHORT).show()
             stickerViewModel.currentFileName = fileName
             stickerViewModel.isLocked.value = true
@@ -388,8 +414,16 @@ class MainActivity : AppCompatActivity() {
             val totalSize = bitmap.width * bitmap.height
             val newBitmap = if (totalSize > MAX_SIZE_PIXELS) {
                 val scaleFactor: Float = MAX_SIZE_PIXELS.toFloat() / totalSize.toFloat()
-                val scaled = Bitmap.createScaledBitmap(bitmap, (bitmap.width * scaleFactor).toInt(), (bitmap.height * scaleFactor).toInt(), false)
-                Timber.w("Scaled huge bitmap, memory savings: %dMB", (bitmap.allocationByteCount - scaled.allocationByteCount) / (1024 * 1024))
+                val scaled = Bitmap.createScaledBitmap(
+                    bitmap,
+                    (bitmap.width * scaleFactor).toInt(),
+                    (bitmap.height * scaleFactor).toInt(),
+                    false
+                )
+                Timber.w(
+                    "Scaled huge bitmap, memory savings: %dMB",
+                    (bitmap.allocationByteCount - scaled.allocationByteCount) / (1024 * 1024)
+                )
                 scaled
             } else {
                 bitmap
@@ -428,7 +462,7 @@ class MainActivity : AppCompatActivity() {
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .setTitle("Confirm")
                 .setMessage("Are you sure you want to create a new board?")
-                .setPositiveButton( "Yes") { _, _ -> newBoard() }
+                .setPositiveButton("Yes") { _, _ -> newBoard() }
                 .setNegativeButton("No", null)
                 .show()
         }
@@ -438,7 +472,7 @@ class MainActivity : AppCompatActivity() {
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .setTitle("Confirm")
                 .setMessage("Are you sure you want to crop all images? This will permanently modify the images to match their cropped areas, but it can save  space and improve performance.")
-                .setPositiveButton( "Yes") { _, _ -> cropAll() }
+                .setPositiveButton("Yes") { _, _ -> cropAll() }
                 .setNegativeButton("No", null)
                 .show()
         }
@@ -494,13 +528,16 @@ class MainActivity : AppCompatActivity() {
             .setIcon(android.R.drawable.ic_dialog_alert)
             .setTitle("Confirm")
             .setMessage("Are you sure you want to quit?")
-            .setPositiveButton( "Yes") { _, _ -> finish() }
+            .setPositiveButton("Yes") { _, _ -> finish() }
             .setNegativeButton("No", null)
             .show()
     }
 
     private fun requestPermission(permission: String) {
-        if (ActivityCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                permission
+            ) != PackageManager.PERMISSION_GRANTED
         ) {
             ActivityCompat.requestPermissions(
                 this,
@@ -512,7 +549,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val PERM_RQST_CODE = 110
-        const val SAVE_FILE_EXTENSION: String = ".ref"
+        const val SAVE_FILE_EXTENSION: String = "ref"
 
         const val INTENT_PICK_IMAGE = 1
         const val INTENT_PICK_SAVED_FILE = 2

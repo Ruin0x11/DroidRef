@@ -29,6 +29,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import timber.log.Timber;
+
 /**
  * Sticker View
  *
@@ -313,8 +315,19 @@ public class StickerView extends FrameLayout {
         return this;
     }
 
+    private PointF getScaledSize(Sticker sticker) {
+        float screenX = 0;
+        float screenY = 0;
+        float temp[] = {sticker.getWidth(), sticker.getHeight()};
+        sticker.getFinalMatrix().mapVectors(temp);
+        float sw = temp[0];
+        float sh = temp[1];
+        return new PointF(sw, sh);
+    }
+
     protected void layoutStickerImmediately(@NonNull Sticker sticker, @Sticker.Position int position) {
-        setStickerPosition(sticker, position);
+        sticker.getMatrix().reset();
+        sticker.recalcFinalMatrix();
 
         float scaleFactor, widthScaleFactor, heightScaleFactor;
         float[] worldSize = {getWidth(), getHeight()};
@@ -324,42 +337,43 @@ public class StickerView extends FrameLayout {
         float worldWidth = worldSize[0];
         float worldHeight = worldSize[1];
 
-        widthScaleFactor = worldWidth / sticker.getDrawable().getIntrinsicWidth();
-        heightScaleFactor = worldHeight / sticker.getDrawable().getIntrinsicHeight();
-        scaleFactor = Math.min(widthScaleFactor, heightScaleFactor);
+        PointF scaled = getScaledSize(sticker);
 
-        sticker.getMatrix().postScale(scaleFactor / 2, scaleFactor / 2, getWidth() / 2f, getHeight() / 2f);
-        setHandlingSticker(sticker);
+        widthScaleFactor = (float)sticker.getWidth() / scaled.x;
+        heightScaleFactor = (float)sticker.getHeight() / scaled.y;
+        scaleFactor = Math.min(widthScaleFactor, heightScaleFactor);
+        //sticker.getMatrix().postScale(scaleFactor / 2, scaleFactor / 2);
+        sticker.recalcFinalMatrix();
+
+        setStickerPosition(sticker, position);
+
+        //setHandlingSticker(sticker);
     }
 
     protected void setStickerPosition(@NonNull Sticker sticker, @Sticker.Position int position) {
-        float centerX = 0;
-        float centerY = 0;
-        float temp[] = {sticker.getWidth(), sticker.getHeight()};
-        canvasMatrix.getMatrix().mapVectors(temp);
-        float sw = temp[0];
-        float sh = temp[1];
+        PointF scaled = getScaledSize(sticker);
+        float screenX, screenY;
 
         if ((position & Sticker.Position.TOP) > 0) {
-            centerY = 0f;
+            screenY = 0f;
         } else if ((position & Sticker.Position.BOTTOM) > 0) {
-            centerY = getHeight() - sh;
+            screenY = getHeight() - scaled.y;
         } else {
-            centerY = (getHeight() / 2f) - (sh / 2f);
+            screenY = (getHeight() / 2f) - (scaled.y / 2f);
         }
         if ((position & Sticker.Position.LEFT) > 0) {
-            centerX = 0f;
+            screenX = 0f;
         } else if ((position & Sticker.Position.RIGHT) > 0) {
-            centerX = getWidth() - sw;
+            screenX = getWidth() - scaled.x;
         } else {
-            centerX = (getWidth() / 2f) - (sw / 2f);
+            screenX = (getWidth() / 2f) - (scaled.x / 2f);
         }
 
-        float[] temp2 = {centerX, centerY};
+        float[] temp2 = {screenX, screenY};
         Matrix a = new Matrix();
-        canvasMatrix.invert(a);
-        a.mapVectors(temp2);
-        sticker.getMatrix().postTranslate(temp2[0], temp2[1]);
+        sticker.getFinalMatrix().invert(a);
+        a.mapPoints(temp2);
+        sticker.getMatrix().setTranslate(temp2[0], temp2[1]);
     }
 
     public Sticker getHandlingSticker() {

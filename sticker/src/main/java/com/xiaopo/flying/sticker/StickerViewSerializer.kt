@@ -64,13 +64,7 @@ class StickerViewSerializer {
     )
 
     data class StickerMetadata(val bitmap: ByteArray, val instances: MutableList<Entry>)
-    data class Board(val version: Int, val date: Long, val stickers: List<StickerMetadata>)
-
-    private fun sha256(bytes: ByteArray): String {
-        val md = MessageDigest.getInstance("SHA-256")
-        val digest = md.digest(bytes)
-        return digest.fold("", { str, it -> str + "%02x".format(it) })
-    }
+    data class Board(val version: Int, val date: Long, val canvasMatrix: Matrix, val stickers: Map<String, StickerMetadata>)
 
     private fun serializeViewModel(viewModel: StickerViewModel): Board {
         val dedup: MutableMap<String, StickerMetadata> = mutableMapOf()
@@ -84,13 +78,12 @@ class StickerViewSerializer {
                 drawableSticker.isFlippedHorizontally,
                 drawableSticker.isFlippedVertically
             )
-            val sha = sha256(drawableSticker.bitmapCache)
             dedup.getOrPut(
-                sha,
+                it.sha256!!,
                 { StickerMetadata(drawableSticker.bitmapCache, mutableListOf()) }).instances.add(entry)
         }
 
-        return Board(SERIAL_VERSION, System.currentTimeMillis(), dedup.values.toList())
+        return Board(SERIAL_VERSION, System.currentTimeMillis(), viewModel.canvasMatrix.value!!.getMatrix(), dedup)
     }
 
     private fun deserializeViewModel(
@@ -99,11 +92,11 @@ class StickerViewSerializer {
         resources: Resources
     ) {
         viewModel.removeAllStickers()
-        board.stickers.flatMapTo(viewModel.stickers.value!!) { metadata ->
+        board.stickers.flatMapTo(viewModel.stickers.value!!) { (sha, metadata) ->
             metadata.instances.mapNotNull { entry ->
                 BitmapFactory.decodeByteArray(metadata.bitmap, 0, metadata.bitmap.size)?.let { bitmap ->
                     val drawable = BitmapDrawable(resources, bitmap)
-                    val sticker = DrawableSticker(drawable, metadata.bitmap)
+                    val sticker = DrawableSticker(drawable, metadata.bitmap, sha)
                     sticker.realBounds = entry.bounds
                     sticker.croppedBounds = entry.cropBounds
                     sticker.setMatrix(entry.matrix)
@@ -114,6 +107,8 @@ class StickerViewSerializer {
             }
         }
 
+        viewModel.canvasMatrix.value!!.setMatrix(board.canvasMatrix)
+        viewModel.canvasMatrix.value!!.notifyChange()
         viewModel.updateCanvasMatrix()
     }
 
@@ -126,8 +121,10 @@ class StickerViewSerializer {
             .use { p ->
                 p.packInt(board.version)
                 p.packLong(board.date)
+                p.packMatrix(board.canvasMatrix)
                 p.packArrayHeader(board.stickers.size)
-                board.stickers.forEach { sticker ->
+                board.stickers.forEach { (sha, sticker) ->
+                    p.packString(sha)
                     p.packBinaryHeader(sticker.bitmap.size)
                     p.addPayload(sticker.bitmap)
                     p.packArrayHeader(sticker.instances.size)
@@ -147,9 +144,11 @@ class StickerViewSerializer {
             .use { u ->
                 val version = u.unpackInt()
                 val date = u.unpackLong()
+                val canvasMatrix = u.unpackMatrix()
                 val stickerCount = u.unpackArrayHeader()
-                val stickers: ArrayList<StickerMetadata> = ArrayList()
-                (0 until stickerCount).mapTo(stickers) {
+                val stickers: HashMap<String, StickerMetadata> = HashMap()
+                (0 until stickerCount).forEach{
+                    val sha = u.unpackString()
                     val bitmapSize = u.unpackBinaryHeader()
                     val bitmap = u.readPayload(bitmapSize)
                     val instanceCount = u.unpackArrayHeader()
@@ -162,9 +161,9 @@ class StickerViewSerializer {
                         val flipVertical = u.unpackBoolean()
                         Entry(bounds, matrix, cropBounds, flipHorizontal, flipVertical)
                     }
-                    StickerMetadata(bitmap, instances)
+                    stickers[sha] = StickerMetadata(bitmap, instances)
                 }
-                Board(version, date, stickers)
+                Board(version, date, canvasMatrix, stickers)
             }
 
         deserializeViewModel(viewModel, unpacked, resources)
@@ -197,6 +196,12 @@ class StickerViewSerializer {
             drawable.setBounds(0, 0, canvas.width, canvas.height)
             drawable.draw(canvas)
             return bitmap
+        }
+
+        fun sha256(bytes: ByteArray): String {
+            val md = MessageDigest.getInstance("SHA-256")
+            val digest = md.digest(bytes)
+            return digest.fold("", { str, it -> str + "%02x".format(it) })
         }
     }
 }

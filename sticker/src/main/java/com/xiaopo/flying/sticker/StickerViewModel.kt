@@ -39,7 +39,6 @@ open class StickerViewModel :
         gestureListener.value = GestureListener(this)
     }
 
-    var isFirstRun: Boolean = true
     var currentFileName: String? = null
 
     private val onStickerAreaTouchListener: OnStickerAreaTouchListener? = null

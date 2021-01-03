@@ -57,6 +57,7 @@ public class StickerView extends FrameLayout {
     private ObservableField<List<BitmapStickerIcon>> activeIcons = new ObservableField<>(new ArrayList<>(4));
 
     private final Paint borderPaint = new Paint();
+    private final Paint iconPaint = new Paint();
     private final Paint auxiliaryLinePaint = new Paint();
 
     private final RectF stickerRect = new RectF();
@@ -110,6 +111,11 @@ public class StickerView extends FrameLayout {
             borderPaint.setStrokeWidth(3);
             borderPaint.setColor(a.getColor(R.styleable.StickerView_borderColor, Color.BLACK));
             borderPaint.setAlpha(a.getInteger(R.styleable.StickerView_borderAlpha, 128));
+
+            iconPaint.setAntiAlias(true);
+            iconPaint.setStrokeWidth(3);
+            iconPaint.setColor(a.getColor(R.styleable.StickerView_iconColor, Color.BLACK));
+            iconPaint.setAlpha(a.getInteger(R.styleable.StickerView_borderAlpha, 128));
 
             auxiliaryLinePaint.setAntiAlias(true);
             auxiliaryLinePaint.setStrokeWidth(3);
@@ -258,7 +264,7 @@ public class StickerView extends FrameLayout {
                             configIconMatrix(icon, x4, y4, rotation);
                             break;
                     }
-                    icon.draw(canvas, borderPaint);
+                    icon.draw(canvas, iconPaint);
                 }
             }
         }
@@ -347,7 +353,7 @@ public class StickerView extends FrameLayout {
 
         setStickerPosition(sticker, position);
 
-        //setHandlingSticker(sticker);
+        setHandlingSticker(sticker);
     }
 
     protected void setStickerPosition(@NonNull Sticker sticker, @Sticker.Position int position) {

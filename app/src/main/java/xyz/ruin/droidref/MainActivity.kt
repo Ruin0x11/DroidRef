@@ -52,62 +52,14 @@ class MainActivity : AppCompatActivity() {
 
         binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
 
-        val stickerOperationListener = object : OnStickerOperationListener {
-            override fun onStickerAdded(sticker: Sticker, direction: Int) {
-                binding.stickerView.layoutSticker(sticker, direction)
-                binding.stickerView.invalidate()
-            }
-
-            override fun onStickerClicked(sticker: Sticker) {
-                binding.stickerView.invalidate()
-            }
-
-            override fun onStickerDeleted(sticker: Sticker) {
-                binding.stickerView.invalidate()
-            }
-
-            override fun onStickerDragFinished(sticker: Sticker) {
-                binding.stickerView.invalidate()
-            }
-
-            override fun onStickerTouchedDown(sticker: Sticker) {
-                binding.stickerView.invalidate()
-            }
-
-            override fun onStickerZoomFinished(sticker: Sticker) {
-                binding.stickerView.invalidate()
-            }
-
-            override fun onStickerFlipped(sticker: Sticker) {
-                binding.stickerView.invalidate()
-            }
-
-            override fun onStickerDoubleTapped(sticker: Sticker) {
-                binding.stickerView.invalidate()
-            }
-
-            override fun onStickerMoved(sticker: Sticker) {
-                binding.stickerView.invalidate()
-            }
-
-            override fun onInvalidateView() {
-                binding.stickerView.invalidate()
-            }
-        }
-
         stickerViewModel = ViewModelProvider(this).get(StickerViewModel::class.java)
-        stickerViewModel.stickerOperationListener = stickerOperationListener
+        stickerViewModel.stickerOperationListener = MyStickerOperationListener(binding)
         binding.viewModel = stickerViewModel
         binding.executePendingBindings()
         binding.lifecycleOwner = this
 
         setupIcons()
         setupButtons()
-
-        if (stickerViewModel.isFirstRun) {
-            stickerViewModel.isFirstRun = false
-            loadSticker()
-        }
 
         handleIntent(intent)
         intent.type = null // Don't run again if rotated/etc.
@@ -143,64 +95,6 @@ class MainActivity : AppCompatActivity() {
             images.forEach {
                 (it as? Uri)?.let(this@MainActivity::doAddSticker)
             }
-        }
-    }
-
-    private class FetchImageFromLinkTask(val text: String, val context: MainActivity) :
-        AsyncTask<Void, Void, Void>() {
-        override fun onPreExecute() {
-            super.onPreExecute()
-            context.binding.activityMain.progressBarHolder.visibility = View.VISIBLE
-        }
-
-        override fun doInBackground(vararg params: Void?): Void? {
-            try {
-                val fuel = FuelManager()
-                fuel.baseHeaders =
-                    mapOf(Headers.USER_AGENT to "Mozilla/5.0 (X11; Linux x86_64; rv:76.0) Gecko/20100101 Firefox/76.0")
-
-                fuel.head(text).response { _, head, result ->
-                    result.fold({
-                        val contentType = head.headers[Headers.CONTENT_TYPE]
-                        if (!contentType.any { it.startsWith("image/") }) {
-                            Toast.makeText(context, "Link is not an image", Toast.LENGTH_LONG)
-                                .show()
-                            context.binding.activityMain.progressBarHolder.visibility = View.GONE
-                            return@response
-                        }
-
-                        fuel.get(text)
-                            .response { _, _, body ->
-                                body.fold({
-                                    val bitmap = BitmapFactory.decodeByteArray(it, 0, it.size)
-                                    context.doAddSticker(bitmap)
-                                    context.binding.activityMain.progressBarHolder.visibility =
-                                        View.GONE
-                                }, {
-                                    Toast.makeText(
-                                        context,
-                                        "Failed to download image: $it",
-                                        Toast.LENGTH_LONG
-                                    )
-                                        .show()
-                                    context.binding.activityMain.progressBarHolder.visibility =
-                                        View.GONE
-                                    Timber.e(it)
-                                })
-                            }
-                    }, {
-                        context.binding.activityMain.progressBarHolder.visibility = View.GONE
-                        Toast.makeText(context, "Failed to download image", Toast.LENGTH_LONG)
-                            .show()
-                        Timber.e(it)
-                    })
-                }
-            } catch (e: Exception) {
-                Timber.e(e)
-                Toast.makeText(context, "Invalid link", Toast.LENGTH_LONG).show()
-                context.binding.activityMain.progressBarHolder.visibility = View.GONE
-            }
-            return null
         }
     }
 
@@ -502,27 +396,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadSticker() {
-        val drawable =
-            ContextCompat.getDrawable(this, R.drawable.h250280)
-        val drawable1 =
-            ContextCompat.getDrawable(this, R.drawable.h2037984)
-        val drawable2 =
-            ContextCompat.getDrawable(this, R.drawable.h2037349)
-        stickerViewModel.addSticker(
-            DrawableSticker(drawable),
-            Sticker.Position.TOP or Sticker.Position.LEFT
-        )
-        stickerViewModel.addSticker(
-            DrawableSticker(drawable1),
-            Sticker.Position.BOTTOM or Sticker.Position.RIGHT
-        )
-        stickerViewModel.addSticker(
-            DrawableSticker(drawable2),
-            Sticker.Position.BOTTOM or Sticker.Position.LEFT
-        )
-    }
-
     override fun onBackPressed() {
         AlertDialog.Builder(this)
             .setIcon(android.R.drawable.ic_dialog_alert)
@@ -544,6 +417,107 @@ class MainActivity : AppCompatActivity() {
                 arrayOf(permission),
                 PERM_RQST_CODE
             )
+        }
+    }
+
+    internal class FetchImageFromLinkTask(val text: String, val context: MainActivity) :
+        AsyncTask<Void, Void, Void>() {
+        override fun onPreExecute() {
+            super.onPreExecute()
+            context.binding.activityMain.progressBarHolder.visibility = View.VISIBLE
+        }
+
+        override fun doInBackground(vararg params: Void?): Void? {
+            try {
+                val fuel = FuelManager()
+                fuel.baseHeaders =
+                    mapOf(Headers.USER_AGENT to "Mozilla/5.0 (X11; Linux x86_64; rv:76.0) Gecko/20100101 Firefox/76.0")
+
+                fuel.head(text).response { _, head, result ->
+                    result.fold({
+                        val contentType = head.headers[Headers.CONTENT_TYPE]
+                        if (!contentType.any { it.startsWith("image/") }) {
+                            Toast.makeText(context, "Link is not an image", Toast.LENGTH_LONG)
+                                .show()
+                            context.binding.activityMain.progressBarHolder.visibility = View.GONE
+                            return@response
+                        }
+
+                        fuel.get(text)
+                            .response { _, _, body ->
+                                body.fold({
+                                    val bitmap = BitmapFactory.decodeByteArray(it, 0, it.size)
+                                    context.doAddSticker(bitmap)
+                                    context.binding.activityMain.progressBarHolder.visibility =
+                                        View.GONE
+                                }, {
+                                    Toast.makeText(
+                                        context,
+                                        "Failed to download image: $it",
+                                        Toast.LENGTH_LONG
+                                    )
+                                        .show()
+                                    context.binding.activityMain.progressBarHolder.visibility =
+                                        View.GONE
+                                    Timber.e(it)
+                                })
+                            }
+                    }, {
+                        context.binding.activityMain.progressBarHolder.visibility = View.GONE
+                        Toast.makeText(context, "Failed to download image", Toast.LENGTH_LONG)
+                            .show()
+                        Timber.e(it)
+                    })
+                }
+            } catch (e: Exception) {
+                Timber.e(e)
+                Toast.makeText(context, "Invalid link", Toast.LENGTH_LONG).show()
+                context.binding.activityMain.progressBarHolder.visibility = View.GONE
+            }
+            return null
+        }
+    }
+
+    internal class MyStickerOperationListener(private val binding: ActivityMainBinding) : OnStickerOperationListener {
+        override fun onStickerAdded(sticker: Sticker, direction: Int) {
+            binding.stickerView.layoutSticker(sticker, direction)
+            binding.stickerView.invalidate()
+        }
+
+        override fun onStickerClicked(sticker: Sticker) {
+            binding.stickerView.invalidate()
+        }
+
+        override fun onStickerDeleted(sticker: Sticker) {
+            binding.stickerView.invalidate()
+        }
+
+        override fun onStickerDragFinished(sticker: Sticker) {
+            binding.stickerView.invalidate()
+        }
+
+        override fun onStickerTouchedDown(sticker: Sticker) {
+            binding.stickerView.invalidate()
+        }
+
+        override fun onStickerZoomFinished(sticker: Sticker) {
+            binding.stickerView.invalidate()
+        }
+
+        override fun onStickerFlipped(sticker: Sticker) {
+            binding.stickerView.invalidate()
+        }
+
+        override fun onStickerDoubleTapped(sticker: Sticker) {
+            binding.stickerView.invalidate()
+        }
+
+        override fun onStickerMoved(sticker: Sticker) {
+            binding.stickerView.invalidate()
+        }
+
+        override fun onInvalidateView() {
+            binding.stickerView.invalidate()
         }
     }
 

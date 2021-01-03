@@ -9,5 +9,6 @@
         <attr name="showAuxiliaryLines" format="boolean" />
         <attr name="accentColor" format="color" />
         <attr name="dashColor" format="color" />
+        <attr name="iconColor" format="color" />
     </declare-styleable>
 </resources>

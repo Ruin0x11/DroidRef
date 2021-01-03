@@ -16,6 +16,7 @@ import java.io.ByteArrayOutputStream;
 public class DrawableSticker extends Sticker {
     private Drawable drawable;
     private byte[] bitmapCache = new byte[0];
+    private String sha256;
 
     public DrawableSticker(Drawable drawable) {
         this.drawable = drawable;
@@ -24,11 +25,12 @@ public class DrawableSticker extends Sticker {
         cacheBitmap();
     }
 
-    public DrawableSticker(Drawable drawable, byte[] bitmapCache) {
+    public DrawableSticker(Drawable drawable, byte[] bitmapCache, String sha256) {
         this.drawable = drawable;
         this.realBounds = new Rect(0, 0, getWidth(), getHeight());
         this.croppedBounds = new RectF(this.realBounds);
         this.bitmapCache = bitmapCache;
+        this.sha256 = sha256;
     }
 
     public DrawableSticker(DrawableSticker other) {
@@ -75,6 +77,7 @@ public class DrawableSticker extends Sticker {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
         this.bitmapCache = stream.toByteArray();
+        this.sha256 = StickerViewSerializer.Companion.sha256(this.bitmapCache);
     }
 
     @NonNull
@@ -133,7 +136,7 @@ public class DrawableSticker extends Sticker {
         return bitmapCache;
     }
 
-    public void setBitmapCache(byte[] bitmapCache) {
-        this.bitmapCache = bitmapCache;
+    public String getSha256() {
+        return sha256;
     }
 }

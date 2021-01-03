@@ -190,14 +190,20 @@ open class StickerViewModel :
         handlingSticker.value = null
         currentIcon.value = null
         when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN ->
-                // Timber.d("CANVAS MotionEvent.ACTION_DOWN event__: %s", event.toString());
-                if (pointerId == -1) {
-                    if (!onTouchDownCanvas(event)) {
-                        return false
+            MotionEvent.ACTION_DOWN -> {
+                if (!onTouchDownCanvas(event)) {
+                    return false
+                }
+                pointerId = event.getPointerId(0)
+            }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                for (i in 0 until event.pointerCount) {
+                    if (event.getPointerId(i) != pointerId) {
+                        calculateDown(event)
+                        pointerId = event.getPointerId(i)
+                        break
                     }
                 }
-            MotionEvent.ACTION_POINTER_DOWN -> {
                 oldDistance = StickerMath.calculateDistance(event)
                 oldRotation = StickerMath.calculateRotation(event)
                 midPoint = calculateMidPoint(event)
@@ -206,28 +212,26 @@ open class StickerViewModel :
             }
             MotionEvent.ACTION_MOVE -> {
                 for (i in 0 until event.pointerCount) {
-                    if (event.getPointerId(0) != pointerId) {
+                    if (event.getPointerId(i) != pointerId) {
                         calculateDown(event)
-                        pointerId = event.getPointerId(0)
+                        pointerId = event.getPointerId(i)
                         break
                     }
                 }
                 handleMoveActionCanvas(event)
             }
             MotionEvent.ACTION_UP -> {
-                for (i in 0 until event.pointerCount) {
-                    if (event.getPointerId(i) == pointerId) {
-                        onTouchUpCanvas(event)
-                        break
-                    }
-                }
+                onTouchUpCanvas(event)
             }
-            MotionEvent.ACTION_POINTER_UP -> if (currentMode.value == ActionMode.CANVAS_ZOOM_WITH_TWO_FINGER) {
-                if (!onTouchDownCanvas(event)) {
-                    return false
+            MotionEvent.ACTION_POINTER_UP -> {
+                if (currentMode.value == ActionMode.CANVAS_ZOOM_WITH_TWO_FINGER) {
+                    pointerId = -1
+                    if (!onTouchDownCanvas(event)) {
+                        return false
+                    }
+                } else {
+                    onTouchUpCanvas(event)
                 }
-            } else {
-                currentMode.value = ActionMode.NONE
             }
         }
         stickerOperationListener.onInvalidateView()
@@ -240,7 +244,6 @@ open class StickerViewModel :
     protected fun onTouchDownCanvas(event: MotionEvent): Boolean {
         currentMode.value = ActionMode.CANVAS_DRAG
         calculateDown(event)
-        pointerId = event.getPointerId(0)
         midPoint = calculateMidPoint()
         oldDistance = StickerMath.calculateDistance(midPoint.x, midPoint.y, downX, downY)
         oldRotation = StickerMath.calculateRotation(midPoint.x, midPoint.y, downX, downY)

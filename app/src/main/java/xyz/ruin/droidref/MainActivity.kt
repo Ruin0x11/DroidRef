@@ -104,12 +104,16 @@ class MainActivity : AppCompatActivity() {
         requestPermission(Manifest.permission.INTERNET)
         requestPermission(Manifest.permission.ACCESS_NETWORK_STATE)
 
-        val text = intent.getStringExtra(Intent.EXTRA_TEXT)!!
-        if (!isValidUrl(text)) {
-            Toast.makeText(this, "Invalid link", Toast.LENGTH_LONG).show()
-        }
+        if (hasPermission(Manifest.permission.INTERNET)
+            && hasPermission(Manifest.permission.ACCESS_NETWORK_STATE))
+         {
+            val text = intent.getStringExtra(Intent.EXTRA_TEXT)!!
+            if (!isValidUrl(text)) {
+                Toast.makeText(this, "Invalid link", Toast.LENGTH_LONG).show()
+            }
 
-        FetchImageFromLinkTask(text, this).execute()
+            FetchImageFromLinkTask(text, this).execute()
+        }
     }
 
     private fun setupIcons() {
@@ -199,30 +203,34 @@ class MainActivity : AppCompatActivity() {
     private fun doSave(fileName: String) {
         requestPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
 
-        val saveDir = getSaveDirectory()
-        val file = File(saveDir, fileName)
+        if (hasPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+            val saveDir = getSaveDirectory()
+            val file = File(saveDir, fileName)
 
-        try {
-            saveDir.mkdirs()
-            StickerViewSerializer().serialize(stickerViewModel, file)
-            stickerViewModel.currentFileName = fileName
-            Toast.makeText(this, "Saved to $file", Toast.LENGTH_SHORT).show()
-        } catch (e: IOException) {
-            Timber.e(e, "Error writing %s", file)
-            Toast.makeText(this, "Error writing $file", Toast.LENGTH_LONG).show()
+            try {
+                saveDir.mkdirs()
+                StickerViewSerializer().serialize(stickerViewModel, file)
+                stickerViewModel.currentFileName = fileName
+                Toast.makeText(this, "Saved to $file", Toast.LENGTH_SHORT).show()
+            } catch (e: IOException) {
+                Timber.e(e, "Error writing %s", file)
+                Toast.makeText(this, "Error writing $file", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
     private fun load() {
         requestPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
 
-        val intent = Intent()
-        intent.type = "*/*"
-        intent.action = Intent.ACTION_GET_CONTENT
-        startActivityForResult(
-            Intent.createChooser(intent, "Open Saved File"),
-            INTENT_PICK_SAVED_FILE
-        )
+        if (hasPermission(Manifest.permission.READ_EXTERNAL_STORAGE)) {
+            val intent = Intent()
+            intent.type = "*/*"
+            intent.action = Intent.ACTION_GET_CONTENT
+            startActivityForResult(
+                Intent.createChooser(intent, "Open Saved File"),
+                INTENT_PICK_SAVED_FILE
+            )
+        }
     }
 
     private fun getFileNameOfUri(uri: Uri): String {
@@ -406,12 +414,14 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun hasPermission(permission: String) =
+        ActivityCompat.checkSelfPermission(
+            this,
+            permission
+        ) == PackageManager.PERMISSION_GRANTED
+
     private fun requestPermission(permission: String) {
-        if (ActivityCompat.checkSelfPermission(
-                this,
-                permission
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
+        if (!hasPermission(permission)) {
             ActivityCompat.requestPermissions(
                 this,
                 arrayOf(permission),
@@ -478,7 +488,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    internal class MyStickerOperationListener(private val binding: ActivityMainBinding) : OnStickerOperationListener {
+    internal class MyStickerOperationListener(private val binding: ActivityMainBinding) :
+        OnStickerOperationListener {
         override fun onStickerAdded(sticker: Sticker, direction: Int) {
             binding.stickerView.layoutSticker(sticker, direction)
             binding.stickerView.invalidate()

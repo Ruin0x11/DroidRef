@@ -3,7 +3,6 @@ package xyz.ruin.droidref
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
-import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
@@ -40,6 +39,7 @@ import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
+
 
 class MainActivity : AppCompatActivity() {
     private lateinit var stickerViewModel: StickerViewModel
@@ -401,6 +401,24 @@ class MainActivity : AppCompatActivity() {
 
         binding.buttonResetCrop.setOnClickListener {
             stickerViewModel.resetCurrentStickerCropping()
+        }
+
+        binding.buttonHideShowUI.setOnCheckedChangeListener { _, isToggled ->
+            setUIVisibility(isToggled)
+        }
+    }
+
+    private fun setUIVisibility(isToggled: Boolean) {
+        if (isToggled) {
+            binding.toolbarTop.visibility = View.GONE;
+            binding.toolbarBottom.visibility = View.GONE;
+            val top = ContextCompat.getDrawable(this, R.drawable.ic_baseline_visibility_off_24)
+            binding.buttonHideShowUI.setCompoundDrawablesWithIntrinsicBounds(null, top, null, null)
+        } else {
+            binding.toolbarTop.visibility = View.VISIBLE;
+            binding.toolbarBottom.visibility = View.VISIBLE;
+            val top = ContextCompat.getDrawable(this, R.drawable.ic_baseline_visibility_24)
+            binding.buttonHideShowUI.setCompoundDrawablesWithIntrinsicBounds(null, top, null, null)
         }
     }
 

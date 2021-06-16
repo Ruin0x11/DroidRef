@@ -17,6 +17,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
+
             <com.xiaopo.flying.sticker.StickerView
                 android:id="@+id/sticker_view"
                 android:layout_width="match_parent"
@@ -56,6 +57,40 @@
             </com.xiaopo.flying.sticker.StickerView>
 
             <HorizontalScrollView
+                android:id="@+id/toolbarHideShowUI"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_alignParentBottom="false"
+                android:background="#00000000"
+                android:foreground="#00000000"
+                android:scrollbars="none"
+                android:visibility="visible">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal">
+
+                    <ToggleButton
+                        android:id="@+id/buttonHideShowUI"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:checked="@={viewModel.isCropActive}"
+                        android:drawableTop="@drawable/ic_baseline_visibility_24"
+                        android:gravity="center"
+                        android:minWidth="1dp"
+                        android:textOff=""
+                        android:textOn=""
+                        android:textSize="0dp"
+                        android:visibility="visible"
+                        tools:visibility="visible" />
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <HorizontalScrollView
+                android:id="@+id/toolbarTop"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentTop="true"
@@ -106,6 +141,7 @@
             </HorizontalScrollView>
 
             <HorizontalScrollView
+                android:id="@+id/toolbarBottom"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentBottom="true"
@@ -145,26 +181,26 @@
                         android:layout_width="wrap_content"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
+                        android:checked="@={viewModel.isLocked}"
                         android:drawableTop="@drawable/ic_lock_outline_black_24dp"
                         android:gravity="center"
                         android:minWidth="1dp"
                         android:textOff=""
                         android:textOn=""
-                        android:textSize="0dp"
-                        android:checked="@={viewModel.isLocked}"/>
+                        android:textSize="0dp" />
 
                     <ToggleButton
                         android:id="@+id/buttonCrop"
                         android:layout_width="wrap_content"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
+                        android:checked="@={viewModel.isCropActive}"
                         android:drawableTop="@drawable/ic_crop_black_24dp"
                         android:gravity="center"
                         android:minWidth="1dp"
                         android:textOff=""
                         android:textOn=""
-                        android:textSize="0dp"
-                        android:checked="@={viewModel.isCropActive}"/>
+                        android:textSize="0dp" />
 
                     <ImageButton
                         android:id="@+id/buttonResetCrop"

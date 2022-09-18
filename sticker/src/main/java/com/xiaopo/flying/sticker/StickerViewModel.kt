@@ -9,7 +9,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import androidx.annotation.IntDef
-import androidx.databinding.Observable
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.xiaopo.flying.sticker.StickerView.Flip
@@ -184,6 +183,19 @@ open class StickerViewModel :
             stickerOperationListener.onInvalidateView()
         }
     }
+
+    fun resetCurrentStickerRotation() {
+        handlingSticker.value?.let(this::resetStickerRotation)
+    }
+
+    private fun resetStickerRotation(sticker: Sticker) {
+        if (sticker != null) {
+            sticker.matrix.postRotate(-sticker.currentAngle, sticker.mappedCenterPoint.x,
+                sticker.mappedCenterPoint.y)
+            stickerOperationListener.onInvalidateView()
+        }
+    }
+
 
     private fun handleCanvasMotion(view: StickerView, event: MotionEvent): Boolean {
         handlingSticker.value = null

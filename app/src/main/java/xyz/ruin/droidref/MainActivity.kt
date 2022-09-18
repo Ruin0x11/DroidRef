@@ -22,6 +22,7 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.rotationMatrix
 import androidx.databinding.DataBindingUtil
 import androidx.lifecycle.ViewModelProvider
 import com.github.kittinunf.fuel.core.FuelManager
@@ -44,6 +45,7 @@ import java.util.*
 class MainActivity : AppCompatActivity() {
     private lateinit var stickerViewModel: StickerViewModel
     private lateinit var binding: ActivityMainBinding
+    private var rotateToastShowed = false;
 
     override fun onCreate(savedInstanceState: Bundle?) {
         Timber.plant(Timber.DebugTree())
@@ -405,6 +407,17 @@ class MainActivity : AppCompatActivity() {
 
         binding.buttonHideShowUI.setOnCheckedChangeListener { _, isToggled ->
             setUIVisibility(isToggled)
+        }
+        binding.buttonRotate.setOnClickListener{
+            stickerViewModel.rotationEnabled.value = !stickerViewModel.rotationEnabled.value!!;
+            if (!rotateToastShowed) {
+                rotateToastShowed = true;
+                Toast.makeText(applicationContext, "Long press for rotation reset", Toast.LENGTH_LONG).show();
+            }
+        }
+        binding.buttonRotate.setOnLongClickListener {
+            stickerViewModel.resetCurrentStickerRotation();
+            true
         }
     }
 

@@ -368,7 +368,7 @@ public abstract class Sticker {
      */
     public float getMatrixAngle(@NonNull Matrix matrix) {
         return (float) Math.toDegrees(-(Math.atan2(getMatrixValue(matrix, Matrix.MSKEW_X),
-                getMatrixValue(matrix, Matrix.MSCALE_X))));
+                Math.abs(getMatrixValue(matrix, Matrix.MSCALE_X)))));
     }
 
     public float getMatrixValue(@NonNull Matrix matrix, @IntRange(from = 0, to = 9) int valueIndex) {

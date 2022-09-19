@@ -14,7 +14,7 @@ import androidx.lifecycle.ViewModel
 import com.xiaopo.flying.sticker.StickerView.Flip
 import com.xiaopo.flying.sticker.StickerView.OnStickerAreaTouchListener
 import timber.log.Timber
-import kotlin.math.pow
+import kotlin.math.*
 
 open class StickerViewModel :
     ViewModel() {
@@ -189,11 +189,11 @@ open class StickerViewModel :
     }
 
     private fun resetStickerRotation(sticker: Sticker) {
-        if (sticker != null) {
-            sticker.matrix.postRotate(-sticker.currentAngle, sticker.mappedCenterPoint.x,
-                sticker.mappedCenterPoint.y)
-            stickerOperationListener.onInvalidateView()
-        }
+        val rotation = if (sticker.isFlippedVertically) sticker.currentAngle;
+            else -sticker.currentAngle
+        sticker.matrix.postRotate(rotation, sticker.mappedCenterPoint.x,
+            sticker.mappedCenterPoint.y)
+        stickerOperationListener.onInvalidateView()
     }
 
 
@@ -675,7 +675,7 @@ open class StickerViewModel :
         handlingSticker.value?.let { flip(it, direction) }
     }
 
-    fun flip(sticker: Sticker, @Flip direction: Int) {
+    private fun flip(sticker: Sticker, @Flip direction: Int) {
         sticker.getCenterPoint(midPoint)
         if (direction and StickerView.FLIP_HORIZONTALLY > 0) {
             sticker.matrix.preScale(-1f, 1f, midPoint.x, midPoint.y)

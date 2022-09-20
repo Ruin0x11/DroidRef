@@ -408,13 +408,6 @@ class MainActivity : AppCompatActivity() {
         binding.buttonHideShowUI.setOnCheckedChangeListener { _, isToggled ->
             setUIVisibility(isToggled)
         }
-        binding.buttonRotate.setOnClickListener{
-            stickerViewModel.rotationEnabled.value = !stickerViewModel.rotationEnabled.value!!;
-            if (!rotateToastShowed) {
-                rotateToastShowed = true;
-                Toast.makeText(applicationContext, "Long press for rotation reset", Toast.LENGTH_LONG).show();
-            }
-        }
         binding.buttonRotate.setOnLongClickListener {
             stickerViewModel.resetCurrentStickerRotation();
             true

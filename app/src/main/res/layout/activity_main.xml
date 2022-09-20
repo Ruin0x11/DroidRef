@@ -137,13 +137,6 @@
                         android:layout_height="match_parent"
                         android:layout_weight="1"
                         app:srcCompat="@drawable/ic_baseline_photo_size_select_large_24" />
-
-                    <ImageButton
-                        android:id="@+id/buttonRotate"
-                        android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        app:srcCompat="@android:drawable/ic_menu_rotate" />
                 </LinearLayout>
             </HorizontalScrollView>
 
@@ -203,6 +196,19 @@
                         android:layout_weight="1"
                         android:checked="@={viewModel.isCropActive}"
                         android:drawableTop="@drawable/ic_crop_black_24dp"
+                        android:gravity="center"
+                        android:minWidth="1dp"
+                        android:textOff=""
+                        android:textOn=""
+                        android:textSize="0dp" />
+
+                    <ToggleButton
+                        android:id="@+id/buttonRotate"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:checked="@={viewModel.rotationEnabled}"
+                        android:drawableTop="@drawable/ic_rotate"
                         android:gravity="center"
                         android:minWidth="1dp"
                         android:textOff=""

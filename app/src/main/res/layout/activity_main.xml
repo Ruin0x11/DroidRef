@@ -202,6 +202,19 @@
                         android:textOn=""
                         android:textSize="0dp" />
 
+                    <ToggleButton
+                        android:id="@+id/buttonRotate"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:checked="@={viewModel.rotationEnabled}"
+                        android:drawableTop="@drawable/ic_rotate"
+                        android:gravity="center"
+                        android:minWidth="1dp"
+                        android:textOff=""
+                        android:textOn=""
+                        android:textSize="0dp" />
+
                     <ImageButton
                         android:id="@+id/buttonResetCrop"
                         android:layout_width="wrap_content"
@@ -215,6 +228,7 @@
                         android:layout_height="match_parent"
                         android:layout_weight="1"
                         app:srcCompat="@drawable/ic_zoom_out_map_black_24dp" />
+
                 </LinearLayout>
             </HorizontalScrollView>
         </RelativeLayout>

@@ -9,13 +9,12 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import androidx.annotation.IntDef
-import androidx.databinding.Observable
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.xiaopo.flying.sticker.StickerView.Flip
 import com.xiaopo.flying.sticker.StickerView.OnStickerAreaTouchListener
 import timber.log.Timber
-import kotlin.math.pow
+import kotlin.math.*
 
 open class StickerViewModel :
     ViewModel() {
@@ -184,6 +183,19 @@ open class StickerViewModel :
             stickerOperationListener.onInvalidateView()
         }
     }
+
+    fun resetCurrentStickerRotation() {
+        handlingSticker.value?.let(this::resetStickerRotation)
+    }
+
+    private fun resetStickerRotation(sticker: Sticker) {
+        val rotation = if (sticker.isFlippedVertically) sticker.currentAngle;
+            else -sticker.currentAngle
+        sticker.matrix.postRotate(rotation, sticker.mappedCenterPoint.x,
+            sticker.mappedCenterPoint.y)
+        stickerOperationListener.onInvalidateView()
+    }
+
 
     private fun handleCanvasMotion(view: StickerView, event: MotionEvent): Boolean {
         handlingSticker.value = null
@@ -663,7 +675,7 @@ open class StickerViewModel :
         handlingSticker.value?.let { flip(it, direction) }
     }
 
-    fun flip(sticker: Sticker, @Flip direction: Int) {
+    private fun flip(sticker: Sticker, @Flip direction: Int) {
         sticker.getCenterPoint(midPoint)
         if (direction and StickerView.FLIP_HORIZONTALLY > 0) {
             sticker.matrix.preScale(-1f, 1f, midPoint.x, midPoint.y)
